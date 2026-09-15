@@ -1,0 +1,29 @@
+asyncapi: 2.6.0
+info:
+  title: NewTrading WebSocket API
+  version: 1.0.0
+  description: Flux temps réel pour les cotations d'actifs et alertes instantanées.
+servers:
+  dev:
+    url: ws://localhost:8080/ws/market
+    protocol: ws
+channels:
+  market/{assetCode}:
+    parameters:
+      assetCode:
+        schema:
+          type: string
+          example: "NVDA"
+    subscribe:
+      summary: Réception en direct des chandeliers / ticks pour l'actif abonné.
+      message:
+        payload:
+          type: object
+          properties:
+            assetCode:
+              type: string
+            price:
+              type: number
+            timestamp:
+              type: string
+              format: date-time

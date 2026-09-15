@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: NewTrading API
+  description: API REST pour la plateforme de simulation et paper trading NewTrading.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Serveur Local de Développement
+  - url: https://api.staging.newtrading.com/api/v1
+    description: Environnement de Staging
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    OrderRequest:
+      type: object
+      required:
+        - portfolioId
+        - assetCode
+        - direction
+        - quantity
+        - executionPrice
+      properties:
+        portfolioId:
+          type: string
+          format: uuid
+        assetCode:
+          type: string
+          example: "AAPL"
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        quantity:
+          type: number
+          format: double
+          example: 10.5
+        executionPrice:
+          type: number
+          format: double
+          example: 185.50
+
+paths:
+  /auth/login:
+    post:
+      summary: Authentification utilisateur (Local / Google OAuth)
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Connexion réussie, retourne le token JWT.
+
+  /trading/orders:
+    post:
+      summary: Placer un ordre simulé (Paper Trading)
+      tags: [Paper Trading]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '201':
+          description: Ordre exécuté avec succès.
+        '400':
+          description: Solde insuffisant ou données invalides.
+
+  /alerts:
+    get:
+      summary: Lister les alertes de l'utilisateur
+      tags: [Alerts]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Liste des alertes actives et historiques.
