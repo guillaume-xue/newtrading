@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: newtrading-backend
+  profiles:
+    active: @spring.profiles.active@   # Remplacé par Maven au build, ou fixé à "dev"
+  jpa:
+    open-in-view: false
+
+# Clé JWT commune ou valeur par défaut
+jwt:
+  expiration-ms: 86400000
