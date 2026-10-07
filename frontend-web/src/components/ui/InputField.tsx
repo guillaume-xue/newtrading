@@ -1,4 +1,3 @@
-// components/InputField.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -8,13 +7,17 @@ import {
   TextInputProps,
   Pressable,
   Platform,
+  useColorScheme,
 } from 'react-native';
+
+import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 import { primitives } from '@/theme/generated/primitives';
 
 export interface InputFieldProps extends TextInputProps {
   label?: string;
-  error?: boolean;
+  /** Peut être un booléen ou directement le message d'erreur textuel */
+  error?: boolean | string;
   errorMessage?: string;
   suffix?: string | React.ReactNode;
 }
@@ -30,27 +33,34 @@ export const InputField: React.FC<InputFieldProps> = ({
   onBlur,
   ...props
 }) => {
+  const scheme = useColorScheme();
+  const theme = scheme === 'dark' ? darkColors : lightColors;
+
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = React.useRef<React.ComponentRef<typeof TextInput>>(null);
 
+  // Détection d'erreur qu'elle vienne de `error` (string ou boolean) ou de `errorMessage`
+  const hasError = Boolean(error) || Boolean(errorMessage);
+  const resolvedErrorMessage = typeof error === 'string' ? error : errorMessage;
+
   const getStatusColor = () => {
-    if (error) {
-      return lightColors['colors_input_warning-text'];
+    if (hasError) {
+      return theme['colors_input_warning-text'];
     }
     if (isFocused) {
-      return lightColors['colors_input_select-text'];
+      return theme['colors_input_select-text'];
     }
-    return lightColors['colors_input_secondary-text'];
+    return theme['colors_input_secondary-text'];
   };
 
   const getBorderColor = () => {
-    if (error) {
-      return lightColors['colors_input_warning-border'];
+    if (hasError) {
+      return theme['colors_input_warning-border'];
     }
     if (isFocused) {
-      return lightColors['colors_input_select-border'];
+      return theme['colors_input_select-border'];
     }
-    return lightColors['colors_input_primary-border'];
+    return theme['colors_input_primary-border'];
   };
 
   const labelColor = getStatusColor();
@@ -60,10 +70,11 @@ export const InputField: React.FC<InputFieldProps> = ({
     <View style={styles.outerContainer}>
       <Pressable
         onPress={() => inputRef.current?.focus()}
+        accessibilityRole="none"
         style={[
           styles.container,
           {
-            backgroundColor: lightColors['colors_input_primary-bg'],
+            backgroundColor: theme['colors_input_primary-bg'],
             borderColor: borderColor,
           },
           label ? styles.containerWithLabel : styles.containerWithoutLabel,
@@ -79,13 +90,14 @@ export const InputField: React.FC<InputFieldProps> = ({
           <TextInput
             ref={inputRef}
             value={value}
+            aria-invalid={hasError}
             style={[
               styles.input,
-              { color: lightColors['colors_input_primary-text'] },
+              { color: theme['colors_input_primary-text'] },
               !label && styles.inputSingleLine,
               style,
             ]}
-            placeholderTextColor={lightColors['colors_input_secondary-text']}
+            placeholderTextColor={theme['colors_input_secondary-text']}
             onFocus={(e) => {
               setIsFocused(true);
               onFocus?.(e);
@@ -104,7 +116,7 @@ export const InputField: React.FC<InputFieldProps> = ({
               <Text
                 style={[
                   styles.suffixText,
-                  { color: lightColors['colors_input_secondary-text'] },
+                  { color: theme['colors_input_secondary-text'] },
                 ]}
               >
                 {suffix}
@@ -116,14 +128,16 @@ export const InputField: React.FC<InputFieldProps> = ({
         ) : null}
       </Pressable>
 
-      {errorMessage ? (
+      {/* Affichage du message d'erreur avec rôle d'accessibilité */}
+      {hasError && resolvedErrorMessage ? (
         <Text
+          accessibilityRole="alert"
           style={[
             styles.errorMessage,
-            { color: lightColors['colors_input_warning-text'] },
+            { color: theme['colors_input_warning-text'] },
           ]}
         >
-          {errorMessage}
+          {resolvedErrorMessage}
         </Text>
       ) : null}
     </View>
@@ -185,7 +199,9 @@ const styles = StyleSheet.create({
   },
   errorMessage: {
     fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
     marginTop: 4,
     marginLeft: 4,
+    fontWeight: '500',
   },
 });

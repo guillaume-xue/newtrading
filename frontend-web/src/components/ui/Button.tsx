@@ -12,10 +12,22 @@ import {
 import Image from 'next/image';
 
 import GoogleIconSource from '@/assets/icons/google.svg';
+import AppleIconSource from '@/assets/icons/apple.svg';
+import EmailIconSource from '@/assets/icons/e-mail.svg';
 
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 import { primitives } from '@/theme/generated/primitives';
+
+// Dictionnaire des icônes disponibles par défaut
+export const BUTTON_ICONS = {
+  google: GoogleIconSource,
+  apple: AppleIconSource,
+  email: EmailIconSource
+} as const;
+
+export type ButtonIconPreset = keyof typeof BUTTON_ICONS;
+export type ButtonIconProp = ButtonIconPreset | React.ReactNode;
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'buy'| 'sell' | 'ghost' | 'inverse';
 export type ButtonShape = 'rounded' | 'pill';
@@ -30,8 +42,8 @@ export interface ButtonProps {
   shape?: ButtonShape;
   size?: ButtonSize;
   bordered?: boolean;
-  leftIcon?: boolean;
-  rightIcon?: boolean;
+  leftIcon?: ButtonIconProp;
+  rightIcon?: ButtonIconProp;
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
@@ -46,8 +58,8 @@ export const Button: React.FC<ButtonProps> = ({
   shape = 'rounded',
   size = 'md',
   bordered,
-  leftIcon = false,
-  rightIcon = false,
+  leftIcon,
+  rightIcon,
   disabled = false,
   loading = false,
   roundedSide = 'all',
@@ -163,6 +175,26 @@ export const Button: React.FC<ButtonProps> = ({
 
   const currentTheme = getVariantStyles();
 
+  // Helper pour afficher l'icône selon son type (preset ou custom element)
+  const renderIcon = (icon: ButtonIconProp, sideStyle: ViewStyle) => {
+    if (!icon) return null;
+
+    if (typeof icon === 'string' && icon in BUTTON_ICONS) {
+      return (
+        <View style={sideStyle}>
+          <Image
+            src={BUTTON_ICONS[icon as ButtonIconPreset]}
+            width={24}
+            height={24}
+            alt=""
+          />
+        </View>
+      );
+    }
+
+    return <View style={sideStyle}>{icon as React.ReactNode}</View>;
+  };
+
   return (
     <Pressable
       onPress={onPress}
@@ -170,7 +202,7 @@ export const Button: React.FC<ButtonProps> = ({
       style={({ pressed }) => [
         styles.base,
         styles[`size_${size}`],
-        getRadiusStyle(), // Injecte dynamiquement les bons coins et le bon rayon
+        getRadiusStyle(),
         {
           backgroundColor: currentTheme.backgroundColor,
           borderColor: hasBorder ? currentTheme.borderColor : 'transparent',
@@ -184,7 +216,8 @@ export const Button: React.FC<ButtonProps> = ({
         <ActivityIndicator color={currentTheme.textColor} size="small" />
       ) : (
         <View style={styles.contentRow}>
-          {leftIcon && <Image src={GoogleIconSource} width={24} height={24} alt="" style={styles.leftIcon} />}
+          {renderIcon(leftIcon, styles.leftIcon)}
+
           <View style={styles.textContainer}>
             <Text
               style={[
@@ -208,7 +241,8 @@ export const Button: React.FC<ButtonProps> = ({
               </Text>
             ) : null}
           </View>
-          {rightIcon && <Image src={GoogleIconSource} width={24} height={24} alt="" style={styles.rightIcon} />}
+
+          {renderIcon(rightIcon, styles.rightIcon)}
         </View>
       )}
     </Pressable>

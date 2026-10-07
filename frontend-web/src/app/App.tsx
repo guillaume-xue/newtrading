@@ -2,12 +2,16 @@
 import React from 'react';
 import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import { DesignSystemPlayground } from '@/screens/DesignSystemPlayground';
+import { AuthSelectionScreen } from '@/screens/AuthSelectionScreen';
 
 export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" />
-      <DesignSystemPlayground />
+      <AuthSelectionScreen
+        onLoginPress={() => {}}
+        onAuthSuccess={() => {}}
+      />
     </SafeAreaView>
   );
 }
