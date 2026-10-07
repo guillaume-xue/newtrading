@@ -1,11 +1,16 @@
 spring:
-  application:
-    name: newtrading-backend
-  profiles:
-    active: @spring.profiles.active@   # Remplacé par Maven au build, ou fixé à "dev"
   jpa:
     open-in-view: false
-
-# Clé JWT commune ou valeur par défaut
-jwt:
-  expiration-ms: 86400000
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 50
+    show-sql: false
+  application:
+    security:
+      jwt:
+        secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+        expiration-ms: 86400000 # 24 heures
