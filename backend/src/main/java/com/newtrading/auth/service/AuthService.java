@@ -34,7 +34,6 @@ public class AuthService {
             throw new BusinessException("Cet email est déjà associé à un compte", HttpStatus.CONFLICT);
         }
 
-        // 1. Création de l'utilisateur
         User user = User.builder()
                 .email(request.email().toLowerCase().trim())
                 .passwordHash(passwordEncoder.encode(request.password()))
@@ -42,7 +41,6 @@ public class AuthService {
                 .build();
         user = userRepository.save(user);
 
-        // 2. Initialisation automatique de son portefeuille virtuel (100k USD)
         VirtualPortfolio portfolio = VirtualPortfolio.builder()
                 .user(user)
                 .initialBalance(INITIAL_BALANCE)
@@ -50,7 +48,6 @@ public class AuthService {
                 .build();
         portfolioRepository.save(portfolio);
 
-        // 3. Génération du JWT
         String token = tokenProvider.generateToken(user.getId(), user.getEmail());
         return new AuthResponse(token, user.getId(), user.getEmail());
     }

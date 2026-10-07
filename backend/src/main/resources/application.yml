@@ -10,6 +10,8 @@ spring:
           batch_size: 50
     show-sql: false
   application:
+    trading:
+      default-initial-balance: 10000.00000000
     security:
       jwt:
         secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
