@@ -11,13 +11,31 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      # Persistance des données
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-newtrading}"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Conteneur 2 : API Spring Boot
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: newtrading_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/newtrading
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
 
 volumes:
   postgres_data:

@@ -1,0 +1,12 @@
+.auth-right-column {
+  display: none !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 240px;
+}
+
+@media (min-width: 768px) {
+  .auth-right-column {
+    display: flex !important;
+  }
+}
