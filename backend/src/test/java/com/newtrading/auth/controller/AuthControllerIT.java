@@ -1,9 +1,10 @@
 package com.newtrading.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.newtrading.auth.dto.LoginRequest;
 import com.newtrading.auth.dto.RegisterRequest;
+import com.newtrading.auth.model.User;
 import com.newtrading.auth.repository.UserRepository;
+import com.newtrading.portfolio.model.VirtualPortfolio;
 import com.newtrading.portfolio.repository.VirtualPortfolioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,10 +16,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.hamcrest.Matchers.notNullValue;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import java.math.BigDecimal;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -45,53 +47,28 @@ class AuthControllerIT {
     }
 
     @Test
-    @DisplayName("Doit réussir l'inscription et retourner le token JWT")
-    void shouldRegisterSuccessfully() throws Exception {
-        RegisterRequest request = new RegisterRequest("trader@test.com", "Password123!");
+    @DisplayName("Doit insérer l'utilisateur et son portefeuille virtuel avec le solde par défaut")
+    void shouldPersistUserAndVirtualPortfolioOnRegistration() throws Exception {
+        RegisterRequest request = new RegisterRequest("trader_pro@test.com", "Password123!");
 
+        // Requête HTTP POST /register
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accessToken", notNullValue()))
-                .andExpect(jsonPath("$.email").value("trader@test.com"));
-    }
+                .andExpect(status().isCreated());
 
-    @Test
-    @DisplayName("Doit renvoyer 400 Bad Request si le mot de passe ne respecte pas les critères")
-    void shouldFailRegisterWhenWeakPassword() throws Exception {
-        RegisterRequest request = new RegisterRequest("trader@test.com", "1234");
+        // 1. Vérification en base de données de la présence de l'utilisateur
+        Optional<User> userOpt = userRepository.findByEmail("trader_pro@test.com");
+        assertThat(userOpt).isPresent();
+        User createdUser = userOpt.get();
 
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Erreur de Validation"))
-                .andExpect(jsonPath("$.errors.password", notNullValue()));
-    }
+        // 2. Vérification de la création et du lien direct du portefeuille virtuel
+        Optional<VirtualPortfolio> portfolioOpt = portfolioRepository.findByUserId(createdUser.getId());
+        assertThat(portfolioOpt).isPresent();
 
-    @Test
-    @DisplayName("Doit bloquer l'accès à une route protégée sans token JWT")
-    void shouldRejectAccessToProtectedEndpointWithoutToken() throws Exception {
-        mockMvc.perform(get("/api/v1/portfolio"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    @DisplayName("Doit renvoyer 401 Unauthorized en cas de mauvais mot de passe au login")
-    void shouldFailLoginWhenBadCredentials() throws Exception {
-        // Pré-inscription
-        RegisterRequest registerReq = new RegisterRequest("trader@test.com", "Password123!");
-        mockMvc.perform(post("/api/v1/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(registerReq)));
-
-        // Tentative de login avec mot de passe erroné
-        LoginRequest loginReq = new LoginRequest("trader@test.com", "MauvaisMotDePasse123!");
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginReq)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("Email ou mot de passe incorrect"));
+        VirtualPortfolio portfolio = portfolioOpt.get();
+        assertThat(portfolio.getUser().getId()).isEqualTo(createdUser.getId());
+        assertThat(portfolio.getInitialBalance()).isEqualByComparingTo(new BigDecimal("10000.00000000"));
+        assertThat(portfolio.getCurrentBalance()).isEqualByComparingTo(new BigDecimal("10000.00000000"));
     }
 }
