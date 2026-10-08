@@ -240,16 +240,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <View style={styles.rightGroup}>
         {variant === 'guest' ? (
           <View style={styles.guestActionRow}>
-            <Pressable onPress={onLoginPress} style={styles.loginLink}>
-              <Text
-                style={[
-                  styles.loginText,
-                  { color: theme['colors_text_primary'] ?? '#0B0F19' },
-                ]}
-              >
-                Connexion
-              </Text>
-            </Pressable>
+            <Button
+              label="Connexion"
+              variant="outline"
+              shape="rounded"
+              size="sm"
+              onPress={onLoginPress}
+            />
 
             <Button
               label="Ouvrir un compte"
