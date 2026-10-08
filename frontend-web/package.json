@@ -29,6 +29,7 @@
     "@types/react-native": "^0.72.8",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "msw": "^3.0.2",
     "react-native-svg-transformer": "^1.5.3",
     "style-dictionary": "^5.5.5",
     "tailwindcss": "^4",
