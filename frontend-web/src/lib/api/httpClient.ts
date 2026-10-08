@@ -33,11 +33,14 @@ httpClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
+      const requestUrl = error.config?.url ?? '';
+      const isAuthenticationRequest = /(?:^|\/)auth\/(?:login|register)(?:$|[?\/])/.test(requestUrl);
+
       // 1. Purge du token en local
       tokenStorage.clear();
 
       // 2. Déconnexion et redirection si exécuté côté client
-      if (typeof window !== 'undefined') {
+      if (!isAuthenticationRequest && typeof window !== 'undefined') {
         const currentPath = window.location.pathname;
         if (currentPath !== '/login' && currentPath !== '/register') {
           window.location.href = `/login?expired=true&redirect=${encodeURIComponent(currentPath)}`;
