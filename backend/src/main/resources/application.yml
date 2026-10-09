@@ -1,4 +1,11 @@
 spring:
+  cache:
+    type: caffeine
+    cache-names:
+      - stockHistory
+      - stockQuote
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=15m
   jpa:
     open-in-view: false
     hibernate:
@@ -10,7 +17,6 @@ spring:
           batch_size: 50
     show-sql: false
 
-# Sortir 'application' tout à gauche (colonne 0, pas d'espace avant)
 application:
   trading:
     default-initial-balance: 10000.00000000
@@ -18,3 +24,9 @@ application:
     jwt:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
       expiration-ms: 86400000 # 24 heures
+  marketdata:
+    alpha-vantage:
+      base-url: https://www.alphavantage.co
+      api-key: ${ALPHA_VANTAGE_API_KEY:demo}
+      connect-timeout-ms: 5000
+      read-timeout-ms: 5000
