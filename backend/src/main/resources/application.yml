@@ -25,8 +25,11 @@ application:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
       expiration-ms: 86400000 # 24 heures
   marketdata:
+    # Choix possible : 'finnhub' ou 'alpha-vantage'
+    provider: ${MARKET_DATA_PROVIDER:finnhub}
+    finnhub:
+      base-url: https://finnhub.io/api/v1
+      api-key: ${FINNHUB_API_KEY:demo}
     alpha-vantage:
       base-url: https://www.alphavantage.co
       api-key: ${ALPHA_VANTAGE_API_KEY:demo}
-      connect-timeout-ms: 5000
-      read-timeout-ms: 5000

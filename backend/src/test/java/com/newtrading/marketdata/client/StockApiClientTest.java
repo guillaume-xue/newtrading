@@ -24,7 +24,8 @@ class StockApiClientTest {
 
     @BeforeEach
     void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
-        stockApiClient = new StockApiClient(
+        // Instanciation de l'implémentation concrète testée avec WireMock
+        stockApiClient = new AlphaVantageStockApiClient(
                 wmRuntimeInfo.getHttpBaseUrl(),
                 "test-api-key",
                 2000,

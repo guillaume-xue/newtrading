@@ -5,6 +5,7 @@ import { View, StyleSheet, ScrollView, useColorScheme } from 'react-native';
 import { AppHeader, HeaderVariant } from '@/components/layout/AppHeader';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { AuthSelectionScreen, AuthModalType } from '@/screens/AuthSelectionScreen';
+import { TradingChart } from '@/components/features/market/components/TradingChart';
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 
@@ -80,7 +81,9 @@ export const HomeScreen: React.FC = () => {
             <View style={styles.emptyContainer} />
           )}
         </View>
-
+        <View style={styles.chartWrapper}>
+          <TradingChart symbol="AAPL" themeMode={scheme === 'dark' ? 'dark' : 'light'} />
+        </View>
         {!showAuthSelection && <AppFooter />}
       </ScrollView>
     </View>

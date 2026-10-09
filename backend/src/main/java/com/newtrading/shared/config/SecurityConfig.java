@@ -63,6 +63,7 @@ public class SecurityConfig {
                 // Whitelist pour l'authentification (accepte /auth/**, /api/auth/** et /api/v1/auth/**)
                 .requestMatchers("/auth/**", "/api/auth/**", "/api/v1/auth/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/api/v1/market/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/v1/**").authenticated()
                 .anyRequest().authenticated()
