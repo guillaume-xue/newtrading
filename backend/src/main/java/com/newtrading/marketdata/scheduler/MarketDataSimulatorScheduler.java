@@ -31,7 +31,7 @@ public class MarketDataSimulatorScheduler {
             "MSFT", new BigDecimal("445.10")
     ));
 
-    @Scheduled(fixedRate = 2000)
+    @Scheduled(fixedRate = 30000)
     public void simulatePriceTicks() {
         currentPrices.forEach((symbol, price) -> {
             // Variation aléatoire de -0.5% à +0.5%
