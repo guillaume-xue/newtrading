@@ -5,7 +5,7 @@ import { View, StyleSheet, ScrollView, useColorScheme } from 'react-native';
 import { AppHeader, HeaderVariant } from '@/components/layout/AppHeader';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { AuthSelectionScreen, AuthModalType } from '@/screens/AuthSelectionScreen';
-import { TradingChart } from '@/components/features/market/components/TradingChart';
+import { TradeScreen } from '@/screens/TradeScreen';
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 
@@ -17,17 +17,14 @@ export const HomeScreen: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [headerVariant, setHeaderVariant] = useState<HeaderVariant>('guest');
 
-  // Gestion de l'affichage d'auth et de la modal cible
   const [showAuthSelection, setShowAuthSelection] = useState<boolean>(false);
   const [targetModal, setTargetModal] = useState<AuthModalType>(null);
 
-  // Clic sur "Connexion" dans le header -> AuthSelectionScreen + LoginModal
   const handleLoginPress = () => {
     setTargetModal('login');
     setShowAuthSelection(true);
   };
 
-  // Clic sur "Ouvrir un compte" dans le header -> AuthSelectionScreen + SignUpModal
   const handleRegisterPress = () => {
     setTargetModal('signup');
     setShowAuthSelection(true);
@@ -44,6 +41,11 @@ export const HomeScreen: React.FC = () => {
     setTargetModal(null);
   };
 
+  // Bascule immédiate vers la vue Trading
+  if (activeTab === 'trade') {
+    return <TradeScreen onBackToHome={() => setActiveTab('markets')} />;
+  }
+
   return (
     <View
       style={[
@@ -51,7 +53,6 @@ export const HomeScreen: React.FC = () => {
         { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
       ]}
     >
-      {/* 1. Header présent quand on n'est pas sur la vue d'authentification */}
       {!showAuthSelection && (
         <AppHeader
           variant={headerVariant}
@@ -64,7 +65,6 @@ export const HomeScreen: React.FC = () => {
         />
       )}
 
-      {/* 2. Zone de défilement centrale */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -81,9 +81,7 @@ export const HomeScreen: React.FC = () => {
             <View style={styles.emptyContainer} />
           )}
         </View>
-        <View style={styles.chartWrapper}>
-          <TradingChart symbol="AAPL" themeMode={scheme === 'dark' ? 'dark' : 'light'} />
-        </View>
+
         {!showAuthSelection && <AppFooter />}
       </ScrollView>
     </View>
