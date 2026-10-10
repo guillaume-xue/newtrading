@@ -1,203 +1,159 @@
-// components/features/market/components/ChartToolbar.tsx
 'use client';
 
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import React, { useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  PanResponder,
+  Animated,
+} from 'react-native';
 import Image from 'next/image';
 
+import plusIcon from '@/assets/icons/fi-rr-plus.svg';
 import pencilIcon from '@/assets/icons/fi-rr-pencil.svg';
-import crossIcon from '@/assets/icons/cross.svg';
-import drawPolygonIcon from '@/assets/icons/draw-polygon 1.svg';
-import statsIcon from '@/assets/icons/stats.svg';
+import textIcon from '@/assets/icons/text 1.svg';
+import polygonIcon from '@/assets/icons/draw-polygon 2.svg';
+import slidersIcon from '@/assets/icons/settings-sliders 1.svg';
 
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
-
-export type ChartTool = 'cursor' | 'trendline';
+export type ChartTool = 'crosshair' | 'trendline' | 'text' | 'shape' | 'settings';
 
 interface ChartToolbarProps {
-  themeMode?: 'dark' | 'light';
   activeTool: ChartTool;
   onSelectTool: (tool: ChartTool) => void;
-  showPositions: boolean;
-  onTogglePositions: () => void;
-  onClearDrawings: () => void;
-  hasDrawings?: boolean;
+  /** Position de départ optionnelle */
+  initialX?: number;
+  initialY?: number;
 }
 
 export const ChartToolbar: React.FC<ChartToolbarProps> = ({
-  themeMode = 'dark',
   activeTool,
   onSelectTool,
-  showPositions,
-  onTogglePositions,
-  onClearDrawings,
-  hasDrawings = false,
+  initialX = 12,
+  initialY = 16,
 }) => {
-  const colors = themeMode === 'dark' ? darkColors : lightColors;
+  // Valeurs animées pour les coordonnées X et Y
+  const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
+
+  // Gestionnaire de drag
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Se déclenche uniquement s'il y a un mouvement réel (> 2px) pour ne pas bloquer les clics boutons
+        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+      },
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          // @ts-ignore
+          x: pan.x._value,
+          // @ts-ignore
+          y: pan.y._value,
+        });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: pan.x, dy: pan.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: () => {
+        pan.flattenOffset();
+      },
+    })
+  ).current;
+
+  const tools: { id: ChartTool; icon: any; label: string }[] = [
+    { id: 'crosshair', icon: plusIcon, label: 'Curseur' },
+    { id: 'trendline', icon: pencilIcon, label: 'Tracé' },
+    { id: 'text', icon: textIcon, label: 'Texte' },
+    { id: 'shape', icon: polygonIcon, label: 'Formes' },
+    { id: 'settings', icon: slidersIcon, label: 'Réglages' },
+  ];
 
   return (
-    <View
+    <Animated.View
+      {...panResponder.panHandlers}
       style={[
-        styles.toolbarContainer,
+        styles.draggableContainer,
         {
-          backgroundColor: colors['colors_bg_secondary'],
-          borderColor: colors['colors_divider_text'],
+          transform: pan.getTranslateTransform(),
         },
       ]}
     >
-      {/* Outil 1 : Curseur standard */}
-      <TouchableOpacity
-        style={[
-          styles.toolButton,
-          activeTool === 'cursor' && {
-            backgroundColor: colors['colors_button_ghost'],
-            borderColor: colors['colors_button_ghost-border'] ?? colors['colors_divider_text'],
-          },
-        ]}
-        onPress={() => onSelectTool('cursor')}
-        accessibilityLabel="Curseur standard"
-        activeOpacity={0.7}
-      >
-        <Image
-          src={drawPolygonIcon}
-          alt="Curseur"
-          width={18}
-          height={18}
-          style={{
-            filter:
-              activeTool === 'cursor'
-                ? themeMode === 'dark'
-                  ? 'brightness(0) invert(1)'
-                  : 'brightness(0)'
-                : 'brightness(0) opacity(0.6)',
-          }}
-        />
-      </TouchableOpacity>
+      {/* Poignée visuelle de déplacement (Drag Handle) */}
+      <View style={styles.dragHandle}>
+        <View style={styles.dragDot} />
+        <View style={styles.dragDot} />
+      </View>
 
-      {/* Outil 2 : Ligne de tendance */}
-      <TouchableOpacity
-        style={[
-          styles.toolButton,
-          activeTool === 'trendline' && {
-            backgroundColor: colors['colors_button_ghost'],
-            borderColor: colors['colors_button_ghost-border'] ?? colors['colors_divider_text'],
-          },
-        ]}
-        onPress={() => onSelectTool('trendline')}
-        accessibilityLabel="Tracer une ligne de tendance"
-        activeOpacity={0.7}
-      >
-        <Image
-          src={pencilIcon}
-          alt="Ligne de tendance"
-          width={18}
-          height={18}
-          style={{
-            filter:
-              activeTool === 'trendline'
-                ? themeMode === 'dark'
-                  ? 'brightness(0) invert(1)'
-                  : 'brightness(0)'
-                : 'brightness(0) opacity(0.6)',
-          }}
-        />
-      </TouchableOpacity>
-
-      <View
-        style={[
-          styles.separator,
-          { backgroundColor: colors['colors_divider_text'] },
-        ]}
-      />
-
-      {/* Outil 3 : Toggle affichage des positions (Long/Short) */}
-      <TouchableOpacity
-        style={[
-          styles.toolButton,
-          showPositions && {
-            backgroundColor:
-              themeMode === 'dark' ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
-            borderColor: colors['colors_badge_border'] ?? colors['colors_divider_text'],
-          },
-        ]}
-        onPress={onTogglePositions}
-        accessibilityLabel="Afficher/Masquer les positions"
-        activeOpacity={0.7}
-      >
-        <Image
-          src={statsIcon}
-          alt="Positions"
-          width={18}
-          height={18}
-          style={{
-            filter: showPositions
-              ? 'invert(48%) sepia(79%) saturate(542%) hue-rotate(113deg) brightness(92%) contrast(97%)' // Teinte verte
-              : 'brightness(0) opacity(0.6)',
-          }}
-        />
-      </TouchableOpacity>
-
-      {/* Outil 4 : Effacer les annotations */}
-      <TouchableOpacity
-        style={[
-          styles.toolButton,
-          !hasDrawings && styles.disabledButton,
-        ]}
-        onPress={onClearDrawings}
-        disabled={!hasDrawings}
-        accessibilityLabel="Effacer les tracés"
-        activeOpacity={0.7}
-      >
-        <Image
-          src={crossIcon}
-          alt="Effacer"
-          width={16}
-          height={16}
-          style={{
-            filter: hasDrawings
-              ? 'invert(31%) sepia(87%) saturate(3061%) hue-rotate(345deg) brightness(92%) contrast(95%)' // Teinte rouge
-              : 'brightness(0) opacity(0.2)',
-          }}
-        />
-      </TouchableOpacity>
-    </View>
+      {/* Liste des boutons d'outils */}
+      {tools.map((tool) => (
+        <TouchableOpacity
+          key={tool.id}
+          style={[
+            styles.toolBtn,
+            activeTool === tool.id && styles.activeBtn,
+          ]}
+          onPress={() => onSelectTool(tool.id)}
+          accessibilityLabel={tool.label}
+          activeOpacity={0.7}
+        >
+          <Image
+            src={tool.icon}
+            alt={tool.label}
+            width={18}
+            height={18}
+            style={{ filter: 'brightness(0) opacity(0.8)' }}
+          />
+        </TouchableOpacity>
+      ))}
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  toolbarContainer: {
+  draggableContainer: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    zIndex: 20,
+    top: 0,
+    left: 0,
+    zIndex: 50,
     flexDirection: 'column',
     alignItems: 'center',
-    padding: primitives['spacing & layout_padding & margin_space-1'],
-    borderRadius: primitives['spacing & layout_border radius_radius-md'],
-    borderWidth: primitives['border width_border-thin'],
-    gap: primitives['spacing & layout_padding & margin_space-1'],
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
-    elevation: 4,
-  },
-  toolButton: {
-    width: 36,
-    height: 36,
-    borderRadius: primitives['spacing & layout_border radius_radius-sm'],
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    // Ombre douce pour matérialiser l'élément flottant
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+    cursor: 'grab',
+  } as any,
+  dragHandle: {
+    width: '100%',
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
+    gap: 3,
+    paddingVertical: 2,
+    marginBottom: 2,
   },
-  disabledButton: {
-    opacity: 0.4,
+  dragDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#9CA3AF',
   },
-  separator: {
-    width: 24,
-    height: primitives['border width_border-thin'],
-    marginVertical: 2,
-    opacity: 0.5,
+  toolBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeBtn: {
+    backgroundColor: '#E5E7EB',
   },
 });
 

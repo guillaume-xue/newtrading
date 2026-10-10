@@ -43,7 +43,7 @@ export const HomeScreen: React.FC = () => {
 
   // Bascule immédiate vers la vue Trading
   if (activeTab === 'trade') {
-    return <TradeScreen onBackToHome={() => setActiveTab('markets')} />;
+    return <TradeScreen />;
   }
 
   return (

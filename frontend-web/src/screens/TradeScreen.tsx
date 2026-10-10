@@ -1,124 +1,211 @@
-// screens/TradeScreen.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Image from 'next/image';
+
+import walletIcon from '@/assets/icons/money-bill-transfer 1.svg';
+import alarmClockIcon from '@/assets/icons/alarm-clock.svg';
+import listIcon from '@/assets/icons/list 1.svg';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { TradingChart } from '@/components/features/market/components/TradingChart';
 import { ChartToolbar, ChartTool } from '@/components/features/market/components/ChartToolbar';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
+import { OrderFormPanel } from '@/components/portfolio/components/OrderFormPanel';
+import { tradeApi, PnLData } from '@/lib/api/tradeApi';
 
-// Modèle temporaire pour matérialiser les positions sur le graphique
-export interface PositionItem {
-  id: string;
-  symbol: string;
-  direction: 'BUY' | 'SELL';
-  entryPrice: number;
-  takeProfit?: number;
-  stopLoss?: number;
-}
-
-interface TradeScreenProps {
-  onBackToHome?: () => void;
-}
-
-export const TradeScreen: React.FC<TradeScreenProps> = ({ onBackToHome }) => {
-  const scheme = useColorScheme();
-  const themeMode = scheme === 'dark' ? 'dark' : 'light';
-  const theme = themeMode === 'dark' ? darkColors : lightColors;
-
+export const TradeScreen: React.FC = () => {
   const [symbol, setSymbol] = useState<string>('BTC/USD');
-  const [searchValue, setSearchValue] = useState<string>('BTC/USD');
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [activeTool, setActiveTool] = useState<ChartTool>('crosshair');
+  const [pnlData, setPnlData] = useState<PnLData | null>(null);
+  const [activeRightTab, setActiveRightTab] = useState<'order' | 'alerts' | 'watchlist'>('order');
 
-  // Gestion des outils d'analyse et annotations (Issue 19)
-  const [activeTool, setActiveTool] = useState<ChartTool>('cursor');
-  const [showPositions, setShowPositions] = useState<boolean>(true);
-  const [hasDrawings, setHasDrawings] = useState<boolean>(false);
+  const currentPrice = 63432.5;
 
-  // Exemple de position ouverte pour valider le marquage (DoD)
-  const [activePositions] = useState<PositionItem[]>([
-    {
-      id: 'pos-1',
-      symbol: 'BTC/USD',
-      direction: 'BUY',
-      entryPrice: 182.5,
-      takeProfit: 195.0,
-      stopLoss: 175.0,
-    },
-  ]);
-
-  const handleSearchSubmit = (text: string) => {
-    setSearchValue(text);
-    if (text.trim().length > 0) {
-      setSymbol(text.trim().toUpperCase());
+  const fetchPortfolio = useCallback(async () => {
+    try {
+      const res = await tradeApi.getPnL();
+      setPnlData(res);
+    } catch {
+      // Ignoré pour conserver les valeurs de secours
     }
-  };
+  }, []);
 
-  const handleClearDrawings = () => {
-    console.log('Effacement de toutes les annotations graphiques');
-    setHasDrawings(false);
-  };
+  useEffect(() => {
+    fetchPortfolio();
+  }, [fetchPortfolio]);
+
+  const formattedBalance = pnlData
+    ? `${pnlData.currentBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
+    : '100 000,00 $';
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: theme.colors_bg_primary ?? '#0B0F19' },
-      ]}
-    >
-      {/* 1. Header en variante 'chart' */}
+    <View style={styles.screenContainer}>
+      {/* 2. Header de trading (aligné avec la vue chart) */}
       <AppHeader
         variant="chart"
         searchValue={searchValue}
-        onSearchChange={handleSearchSubmit}
-        cashAmount="100 000,00 $"
-        onAlertPress={() => console.log('Ouvrir modal alerte')}
-        onSettingsPress={() => console.log('Paramètres')}
-        onNotificationsPress={() => console.log('Notifications')}
-        onProfilePress={() => console.log('Profil')}
+        onSearchChange={setSearchValue}
+        cashAmount={formattedBalance}
+        onAlertPress={() => setActiveRightTab('alerts')}
       />
 
-      {/* 2. Zone principale : Graphique de trading + Toolbar */}
-      <View style={styles.chartWrapper}>
-        {/* Barre d'outils d'annotation (Issue 19) */}
-        <ChartToolbar
-          themeMode={themeMode}
-          activeTool={activeTool}
-          onSelectTool={setActiveTool}
-          showPositions={showPositions}
-          onTogglePositions={() => setShowPositions((prev) => !prev)}
-          onClearDrawings={handleClearDrawings}
-          hasDrawings={hasDrawings}
-        />
+      {/* 3. Zone principale de trading (split 3 colonnes) */}
+      <View style={styles.workspace}>
+        {/* Colonne centrale : Graphique avec Toolbar et Info Ticker */}
+        <View style={styles.chartArea}>
+          <ChartToolbar activeTool={activeTool} onSelectTool={setActiveTool} />
 
-        {/* Graphique principal */}
-        <TradingChart
-          symbol={symbol}
-          themeMode={themeMode}
-        />
+          {/* Bandeau d'informations ticker incrusté en haut du graphique */}
+          <View style={styles.tickerOverlay}>
+            <Text style={styles.tickerSymbol}>BTC/USD</Text>
+            <View style={styles.badgePill}>
+              <Text style={styles.badgePillText}>PERP</Text>
+            </View>
+            <Text style={styles.tickerPrice}>
+              {currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </Text>
+            <Text style={styles.tickerPercent}>+2.5%</Text>
+          </View>
+
+          {/* Graphique Lightweight Charts */}
+          <TradingChart symbol={symbol} themeMode="light" />
+        </View>
+
+        {/* Colonne droite : Formulaire d'ordre et Historique */}
+        <View style={styles.orderPanelColumn}>
+          <OrderFormPanel
+            assetCode={symbol}
+            currentPrice={currentPrice}
+            availableBalance={1.0}
+            onOrderSuccess={fetchPortfolio}
+          />
+        </View>
+
+        {/* Colonne d'icônes à l'extrême droite */}
+        <View style={styles.rightIconSidebar}>
+          <TouchableOpacity
+            style={[styles.sidebarIconBtn, activeRightTab === 'order' && styles.sidebarIconActive]}
+            onPress={() => setActiveRightTab('order')}
+          >
+            <Image src={walletIcon} width={20} height={20} alt="Ordre" style={styles.iconTint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sidebarIconBtn, activeRightTab === 'alerts' && styles.sidebarIconActive]}
+            onPress={() => setActiveRightTab('alerts')}
+          >
+            <Image src={alarmClockIcon} width={20} height={20} alt="Alertes" style={styles.iconTint} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sidebarIconBtn, activeRightTab === 'watchlist' && styles.sidebarIconActive]}
+            onPress={() => setActiveRightTab('watchlist')}
+          >
+            <Image src={listIcon} width={20} height={20} alt="Watchlist" style={styles.iconTint} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  screenContainer: {
     width: '100%',
     // @ts-ignore
     height: '100vh',
-    // @ts-ignore
-    maxHeight: '100vh',
-    overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
     flexDirection: 'column',
-  },
-  chartWrapper: {
-    width: '100%',
-    // @ts-ignore
-    height: 'calc(100vh - 64px)', // 64px = hauteur exacte de AppHeader
-    position: 'relative',
     overflow: 'hidden',
+  },
+  topBreadcrumbBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 2,
+    backgroundColor: '#FFFFFF',
+  },
+  breadcrumbText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '600',
+  },
+  workspace: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    marginTop: 1,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  chartArea: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+    borderRightWidth: 1,
+    borderRightColor: '#E5E7EB',
+  },
+  tickerOverlay: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tickerSymbol: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0B0F19',
+  },
+  badgePill: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  badgePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  tickerPrice: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#009F6B',
+  },
+  tickerPercent: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#009F6B',
+  },
+  orderPanelColumn: {
+    width: 400, // Aligné sur la largeur de OrderFormPanel (350px au lieu de 290px)
+    backgroundColor: '#FFFFFF',
+    borderRightWidth: 1,
+    borderRightColor: '#E5E7EB',
+  },
+  rightIconSidebar: {
+    width: 44,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    paddingTop: 12,
+    gap: 16,
+  },
+  sidebarIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sidebarIconActive: {
+    backgroundColor: '#F3F4F6',
+  },
+  iconTint: {
+    filter: 'brightness(0) opacity(0.7)',
   },
 });
 
