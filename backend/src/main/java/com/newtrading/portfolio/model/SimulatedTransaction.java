@@ -3,6 +3,7 @@ package com.newtrading.portfolio.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -24,6 +25,7 @@ public class SimulatedTransaction {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "portfolio_id", referencedColumnName = "id", nullable = false)
+    @JsonIgnore
     private VirtualPortfolio portfolio;
 
     @Column(name = "asset_code", nullable = false, length = 12)
