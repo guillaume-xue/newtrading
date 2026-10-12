@@ -14,8 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NewTrading",
-  description: "NewTrading design system playground",
+  title: 'NewTrading',
+  description: 'Plateforme de simulation boursière',
+  icons: {
+    icon: '/favicon.ico',
+    apple: [
+      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({

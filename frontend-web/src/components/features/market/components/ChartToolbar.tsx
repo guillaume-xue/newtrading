@@ -21,7 +21,6 @@ export type ChartTool = 'crosshair' | 'trendline' | 'text' | 'shape' | 'settings
 interface ChartToolbarProps {
   activeTool: ChartTool;
   onSelectTool: (tool: ChartTool) => void;
-  /** Position de départ optionnelle */
   initialX?: number;
   initialY?: number;
 }
@@ -32,15 +31,12 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   initialX = 12,
   initialY = 16,
 }) => {
-  // Valeurs animées pour les coordonnées X et Y
   const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
 
-  // Gestionnaire de drag
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Se déclenche uniquement s'il y a un mouvement réel (> 2px) pour ne pas bloquer les clics boutons
         return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
       },
       onPanResponderGrant: () => {
@@ -80,13 +76,11 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         },
       ]}
     >
-      {/* Poignée visuelle de déplacement (Drag Handle) */}
       <View style={styles.dragHandle}>
         <View style={styles.dragDot} />
         <View style={styles.dragDot} />
       </View>
 
-      {/* Liste des boutons d'outils */}
       {tools.map((tool) => (
         <TouchableOpacity
           key={tool.id}
@@ -126,7 +120,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    // Ombre douce pour matérialiser l'élément flottant
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
     cursor: 'grab',
   } as any,
