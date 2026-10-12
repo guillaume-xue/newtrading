@@ -1,5 +1,6 @@
 package com.newtrading.marketdata.service;
 
+import com.newtrading.alerts.service.AlertService;
 import com.newtrading.marketdata.dto.QuoteDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 public class PriceBroadcasterService {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final AlertService alertService;
 
     public void broadcastQuote(QuoteDto quote) {
         if (quote == null || quote.getSymbol() == null) {
@@ -21,5 +23,9 @@ public class PriceBroadcasterService {
         String destination = "/topic/market/" + quote.getSymbol().toUpperCase();
         log.info("Envoi cotation sur {} : {}", destination, quote.getPrice());
         messagingTemplate.convertAndSend(destination, quote);
+
+        // Évaluation instantanée des alertes
+        alertService.evaluateQuote(quote);
     }
+
 }
