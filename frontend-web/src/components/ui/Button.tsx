@@ -26,6 +26,8 @@ export const BUTTON_ICONS = {
   email: EmailIconSource
 } as const;
 
+const COLORED_BUTTON_ICONS = new Set<ButtonIconPreset>(['google']);
+
 export type ButtonIconPreset = keyof typeof BUTTON_ICONS;
 export type ButtonIconProp = ButtonIconPreset | React.ReactNode;
 
@@ -174,19 +176,27 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const currentTheme = getVariantStyles();
+  const iconFilter =
+    currentTheme.textColor.toLowerCase() === '#ffffff' ||
+    currentTheme.textColor.toLowerCase() === '#fff'
+      ? 'brightness(0) invert(1)'
+      : 'brightness(0)';
 
   // Helper pour afficher l'icône selon son type (preset ou custom element)
   const renderIcon = (icon: ButtonIconProp, sideStyle: ViewStyle) => {
     if (!icon) return null;
 
     if (typeof icon === 'string' && icon in BUTTON_ICONS) {
+      const iconPreset = icon as ButtonIconPreset;
+
       return (
         <View style={sideStyle}>
           <Image
-            src={BUTTON_ICONS[icon as ButtonIconPreset]}
+            src={BUTTON_ICONS[iconPreset]}
             width={24}
             height={24}
             alt=""
+            style={COLORED_BUTTON_ICONS.has(iconPreset) ? undefined : { filter: iconFilter }}
           />
         </View>
       );

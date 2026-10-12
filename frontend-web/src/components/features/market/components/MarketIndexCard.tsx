@@ -7,13 +7,11 @@ import {
   ViewStyle,
   useColorScheme,
 } from 'react-native';
-import Image, { StaticImageData } from 'next/image';
 
 import { MarketTickerInfo } from '@/components/features/market/components/MarketTickerInfo';
 import { FinancialValue } from '@/components/ui/FinancialValue';
 import { PercentageBadge } from '@/components/ui/PercentageBadge';
-
-import CharUpSource from '@/assets/icons/char-up.png';
+import { TradingChart } from '@/components/features/market/components/TradingChart';
 
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
@@ -22,6 +20,10 @@ import { primitives } from '@/theme/generated/primitives';
 export type CardType = 'index' | 'stock' | 'crypto';
 
 export interface MarketIndexCardProps {
+  /**
+   * Symbole utilisé pour charger l'historique du mini-graphique.
+   */
+  symbol?: string;
   /**
    * Catégorie / Pays supérieur (ex: "ALLEMAGNE")[span_1](start_span)[span_1](end_span)
    */
@@ -47,10 +49,6 @@ export interface MarketIndexCardProps {
    */
   changePercent: number | string;
   /**
-   * Source d'image personnalisée pour le mini-graphique (par défaut: char-up.png)
-   */
-  chartImageSource?: StaticImageData | string;
-  /**
    * Style personnalisé pour la carte
    */
   style?: ViewStyle;
@@ -59,17 +57,18 @@ export interface MarketIndexCardProps {
 
 export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
   countryOrCategory,
+  symbol,
   indexName,
   points,
   pointsUnit = 'pts',
   equivalentAmount,
   changePercent,
-  chartImageSource = CharUpSource,
   style,
   cardType = 'index',
 }) => {
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? darkColors : lightColors;
+  const themeMode = scheme === 'dark' ? 'dark' : 'light';
 
   const formattedPoints =
     typeof points === 'number'
@@ -156,13 +155,14 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
       {/* 3. Mini-graphique (Sparkline) */}
       {cardType === 'index' && (
         <View style={styles.chartWrapper}>
-
-            <Image
-              src={chartImageSource}
-              alt={`Graphique ${indexName}`}
-              width={120}
-              height={65}
-            />
+          <TradingChart
+            symbol={symbol ?? indexName}
+            themeMode={themeMode}
+            chartType="area"
+            activeTool="crosshair"
+            disableZoom
+            showPositions={false}
+          />
         </View>
       )}
     </View>
@@ -210,11 +210,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chartWrapper: {
-    width: 120,
-    height: 65,
+    width: '100%',
+    height: 72,
     marginTop: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
-  },
-  chartImage: {
-    objectFit: 'contain',
+    overflow: 'hidden',
+    borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
   },
 });

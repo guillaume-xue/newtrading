@@ -1,3 +1,17 @@
+/* Désactive l'outline bleu natif du navigateur sur tous les champs de saisie */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+[contenteditable="true"]:focus,
+[contenteditable="true"]:focus-visible {
+  outline: none !important;
+ outline-style: none !important;
+ outline-width: 0 !important;
+ outline-color: transparent !important;
+ box-shadow: none !important;
+}
+
 .auth-right-column {
   display: none !important;
   align-items: center;

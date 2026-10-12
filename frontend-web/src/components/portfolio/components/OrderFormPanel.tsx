@@ -1,33 +1,66 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import Image from 'next/image';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 
-import DotsIcon from '@/assets/icons/fi-rr-menu-dots.svg';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
+import { WidgetHeader } from '@/components/ui/WidgetHeader';
 import { lightColors } from '@/theme/generated/light';
-import { tradeApi } from '@/lib/api/tradeApi';
+import { SimulatedTransactionResponse, tradeApi } from '@/lib/api/tradeApi';
 
 interface OrderFormPanelProps {
   assetCode: string;
   currentPrice: number;
   availableBalance: number;
   onOrderSuccess: () => void;
+  initialHistory?: SimulatedTransactionResponse[];
 }
+
+
 
 export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
   assetCode,
   availableBalance,
   onOrderSuccess,
+  initialHistory,
 }) => {
   const [direction, setDirection] = useState<'BUY' | 'SELL'>('BUY');
   const [price, setPrice] = useState<string>('63,321.50');
   const [size, setSize] = useState<string>('1.00');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [history, setHistory] = useState<SimulatedTransactionResponse[]>(initialHistory ?? []);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(!initialHistory);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      const response = await tradeApi.getOrderHistory(0, 10);
+      setHistory(response.content);
+    } catch (error: unknown) {
+      const message = isAxiosError(error)
+        ? error.response?.data?.message
+        : undefined;
+      setHistoryError(message ?? 'Impossible de charger l’historique');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialHistory) return;
+
+    const timeoutId = setTimeout(() => {
+      void loadHistory();
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [loadHistory, assetCode, initialHistory]);
 
   const handleExecuteOrder = async (targetDirection: 'BUY' | 'SELL') => {
     setDirection(targetDirection);
@@ -47,6 +80,9 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
         quantity: parsedQuantity,
       });
       onOrderSuccess();
+      if (!initialHistory) {
+        await loadHistory();
+      }
     } catch (error: unknown) {
       const message = isAxiosError(error)
         ? error.response?.data?.message
@@ -60,12 +96,7 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
   return (
     <View style={styles.container}>
       {/* 1. Titre de section ORDRE & Menu Options */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>ORDRE</Text>
-        <TouchableOpacity style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Image src={DotsIcon} width={16} height={16} alt="Options" style={styles.dotsIcon} />
-        </TouchableOpacity>
-      </View>
+      <WidgetHeader title="ORDRE" />
 
       {/* 2. Boutons segmentés collés Buy & Sell */}
       <View style={styles.buttonSegment}>
@@ -134,12 +165,64 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
       )}
 
       {/* 5. Titre de section HISTORIQUE & Menu Options */}
-      <View style={[styles.sectionHeader, styles.historyHeader]}>
-        <Text style={styles.sectionTitle}>HISTORIQUE</Text>
-        <TouchableOpacity style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Image src={DotsIcon} width={16} height={16} alt="Options" style={styles.dotsIcon} />
-        </TouchableOpacity>
-      </View>
+      <WidgetHeader title="HISTORIQUE" />
+      <ScrollView
+        style={styles.historyList}
+        contentContainerStyle={styles.historyContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {historyLoading ? (
+          <View style={styles.historyFeedback}>
+            <ActivityIndicator size="small" color={lightColors['colors_text_secondary']} />
+            <Text style={styles.historyFeedbackText}>Chargement…</Text>
+          </View>
+        ) : historyError ? (
+          <Text style={styles.historyErrorText}>{historyError}</Text>
+        ) : history.length === 0 ? (
+          <Text style={styles.emptyHistoryText}>Aucune transaction</Text>
+        ) : (
+          history.map((transaction) => (
+            <View key={transaction.id} style={styles.historyRow}>
+              <View style={styles.historyMain}>
+                <View style={styles.historyTitleRow}>
+                  <Text style={styles.historyAsset}>{transaction.assetCode}</Text>
+                  <Text
+                    style={[
+                      styles.historyDirection,
+                      transaction.orderDirection === 'BUY'
+                        ? styles.buyText
+                        : styles.sellText,
+                    ]}
+                  >
+                    {transaction.orderDirection}
+                  </Text>
+                </View>
+                <Text style={styles.historyDate}>
+                  {new Date(transaction.executedAt).toLocaleString('fr-FR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </View>
+              <View style={styles.historyValues}>
+                <Text style={styles.historyValue}>
+                  {transaction.quantity.toLocaleString('fr-FR', {
+                    maximumFractionDigits: 4,
+                  })}
+                </Text>
+                <Text style={styles.historyPrice}>
+                  {transaction.executionPrice.toLocaleString('fr-FR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} $
+                </Text>
+              </View>
+            </View>
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 };
@@ -216,11 +299,83 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 6,
   },
-  historyHeader: {
+  historyList: {
+    flex: 1,
     marginTop: 20,
+  },
+  historyContent: {
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     paddingTop: 16,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  historyMain: {
+    flex: 1,
+    gap: 3,
+  },
+  historyTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyAsset: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0B0F19',
+  },
+  historyDirection: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  buyText: {
+    color: '#059669',
+  },
+  sellText: {
+    color: '#DC2626',
+  },
+  historyDate: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  historyValues: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  historyValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0B0F19',
+  },
+  historyPrice: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  historyFeedback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+  },
+  historyFeedbackText: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  historyErrorText: {
+    paddingVertical: 12,
+    fontSize: 11,
+    color: '#DC2626',
+  },
+  emptyHistoryText: {
+    paddingVertical: 12,
+    fontSize: 11,
+    color: '#6B7280',
   },
 });
 

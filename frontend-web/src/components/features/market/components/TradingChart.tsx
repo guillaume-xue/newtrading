@@ -1,4 +1,3 @@
-// components/features/market/components/TradingChart.tsx
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -10,8 +9,10 @@ import {
   IPriceLine,
   UTCTimestamp,
   CandlestickData,
+  AreaData,
   ColorType,
   CandlestickSeries,
+  AreaSeries,
   LineStyle,
 } from 'lightweight-charts';
 
@@ -41,7 +42,9 @@ export interface TrendLine {
 interface TradingChartProps {
   symbol: string;
   themeMode?: 'dark' | 'light';
+  chartType?: 'candlestick' | 'area'; // Nouvelle variante
   activeTool?: ChartTool;
+  disableZoom?: boolean;
   showPositions?: boolean;
   positions?: PositionIndicator[];
   onDrawingsChange?: (hasDrawings: boolean) => void;
@@ -78,31 +81,34 @@ const generateLocalMockCandles = (): CandlestickData[] => {
 export const TradingChart: React.FC<TradingChartProps> = ({
   symbol,
   themeMode = 'dark',
+  chartType = 'candlestick',
   activeTool = 'crosshair',
+  disableZoom = false,
   showPositions = true,
   positions = [],
   onDrawingsChange,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | ISeriesApi<'Area'> | null>(null);
   const currentCandleRef = useRef<CandlestickData | null>(null);
+  const areaBaselinePriceRef = useRef<number | null>(null);
   const activePriceLinesRef = useRef<IPriceLine[]>([]);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // État local pour les tracés de lignes de tendance
   const [lines, setLines] = useState<TrendLine[]>([]);
   const [currentDraftLine, setCurrentDraftLine] = useState<TrendLine | null>(null);
 
   const colors = themeMode === 'dark' ? darkColors : lightColors;
 
-  // 1. Initialisation du graphique Lightweight Charts
+  // 1. Initialisation du graphique
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
     const container = chartContainerRef.current;
+    const isArea = chartType === 'area';
 
     const chart = createChart(container, {
       width: container.clientWidth || 800,
@@ -110,32 +116,60 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       layout: {
         background: {
           type: ColorType.Solid,
-          color: colors.colors_bg_secondary,
+          color: isArea ? '#FFFFFF' : colors.colors_bg_secondary,
         },
         textColor: colors.colors_text_secondary,
+        fontSize: isArea ? 10 : 12,
       },
       grid: {
-        vertLines: { color: themeMode === 'dark' ? '#1f2937' : '#e5e7eb' },
-        horzLines: { color: themeMode === 'dark' ? '#1f2937' : '#e5e7eb' },
+        vertLines: { visible: !isArea, color: '#1f2937' },
+        horzLines: { visible: !isArea, color: '#1f2937' },
       },
       timeScale: {
-        borderColor: colors.colors_divider_text,
+        borderColor: isArea ? 'transparent' : colors.colors_divider_text,
         timeVisible: true,
         secondsVisible: false,
       },
       rightPriceScale: {
-        borderColor: colors.colors_divider_text,
+        visible: !isArea,
+        borderColor: isArea ? 'transparent' : colors.colors_divider_text,
       },
+      ...(disableZoom && {
+        handleScale: {
+          mouseWheel: false,
+          pinch: false,
+          axisPressedMouseMove: false,
+        },
+        handleScroll: {
+          mouseWheel: false,
+          pressedMouseMove: false,
+          horzTouchDrag: false,
+          vertTouchDrag: false,
+        },
+      }),
     });
 
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: colors.colors_button_buy,
-      downColor: colors.colors_button_sell,
-      borderUpColor: colors.colors_button_buy,
-      borderDownColor: colors.colors_button_sell,
-      wickUpColor: colors.colors_button_buy,
-      wickDownColor: colors.colors_button_sell,
-    });
+    let series: ISeriesApi<'Candlestick'> | ISeriesApi<'Area'>;
+
+    if (isArea) {
+      series = chart.addSeries(AreaSeries, {
+        lineColor: '#000000',
+        topColor: 'rgba(255, 255, 255, 1)',
+        bottomColor: 'rgba(255, 255, 255, 1)',
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+    } else {
+      series = chart.addSeries(CandlestickSeries, {
+        upColor: colors.colors_button_buy,
+        downColor: colors.colors_button_sell,
+        borderUpColor: colors.colors_button_buy,
+        borderDownColor: colors.colors_button_sell,
+        wickUpColor: colors.colors_button_buy,
+        wickDownColor: colors.colors_button_sell,
+      });
+    }
 
     chartRef.current = chart;
     seriesRef.current = series;
@@ -157,38 +191,37 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       seriesRef.current = null;
     };
   }, [
+    chartType,
     colors.colors_bg_secondary,
     colors.colors_button_buy,
     colors.colors_button_sell,
     colors.colors_divider_text,
     colors.colors_text_secondary,
+    disableZoom,
     themeMode,
   ]);
 
-  // 2. Gestion et affichage des lignes de position (Entry, TP, SL)
+  // 2. Gestion des positions
   useEffect(() => {
     if (!seriesRef.current) return;
 
-    // Nettoyage des anciennes lignes
     activePriceLinesRef.current.forEach((line) => {
       try {
         seriesRef.current?.removePriceLine(line);
       } catch {
-        // Ignorer si la série a été détruite
+        // Ignorer
       }
     });
     activePriceLinesRef.current = [];
 
     if (!showPositions || positions.length === 0) return;
 
-    // Filtrer les positions correspondant à l'actif courant
     const currentPositions = positions.filter((p) => p.symbol === symbol);
 
     currentPositions.forEach((pos) => {
       const isBuy = pos.direction === 'BUY';
       const mainColor = isBuy ? colors.colors_button_buy : colors.colors_button_sell;
 
-      // Ligne d'entrée de position
       const entryLine = seriesRef.current!.createPriceLine({
         price: pos.entryPrice,
         color: mainColor,
@@ -199,7 +232,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       });
       activePriceLinesRef.current.push(entryLine);
 
-      // Ligne Take Profit (TP)
       if (pos.takeProfit) {
         const tpLine = seriesRef.current!.createPriceLine({
           price: pos.takeProfit,
@@ -212,7 +244,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         activePriceLinesRef.current.push(tpLine);
       }
 
-      // Ligne Stop Loss (SL)
       if (pos.stopLoss) {
         const slLine = seriesRef.current!.createPriceLine({
           price: pos.stopLoss,
@@ -233,7 +264,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     symbol,
   ]);
 
-  // 3. Chargement de l'historique des chandeliers
+  // 3. Données et Ligne de base en pointillé
   useEffect(() => {
     let isMounted = true;
 
@@ -266,7 +297,32 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         if (!isMounted) return;
 
         if (seriesRef.current && formattedData.length > 0) {
-          seriesRef.current.setData(formattedData);
+          if (chartType === 'area') {
+            const areaData: AreaData[] = formattedData.map((d) => ({
+              time: d.time,
+              value: d.close,
+            }));
+            const baselinePrice = areaData[0].value;
+            const lastPrice = areaData[areaData.length - 1].value;
+            const areaColor = lastPrice >= baselinePrice ? '#059669' : '#DC2626';
+            const areaSeries = seriesRef.current as ISeriesApi<'Area'>;
+
+            areaBaselinePriceRef.current = baselinePrice;
+            areaSeries.applyOptions({ lineColor: areaColor });
+            areaSeries.setData(areaData);
+
+            // Ligne de référence du cours initial
+            seriesRef.current.createPriceLine({
+              price: baselinePrice,
+              color: '#000000',
+              lineWidth: 1,
+              lineStyle: LineStyle.Dotted,
+              axisLabelVisible: false,
+            });
+          } else {
+            (seriesRef.current as ISeriesApi<'Candlestick'>).setData(formattedData);
+          }
+
           currentCandleRef.current = formattedData[formattedData.length - 1];
           requestAnimationFrame(() => {
             chartRef.current?.timeScale().fitContent();
@@ -288,25 +344,42 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [symbol]);
+  }, [symbol, chartType]);
 
-  // 4. WebSocket pour mise à jour du cours en direct
-  const handlePriceUpdate = useCallback((quote: QuoteModel) => {
-    if (!seriesRef.current || !currentCandleRef.current) return;
+  // 4. WebSocket
+  const handlePriceUpdate = useCallback(
+    (quote: QuoteModel) => {
+      if (!seriesRef.current || !currentCandleRef.current) return;
 
-    const lastCandle = currentCandleRef.current;
-    const price = Number(quote.price);
+      const lastCandle = currentCandleRef.current;
+      const price = Number(quote.price);
 
-    const updatedCandle: CandlestickData = {
-      ...lastCandle,
-      close: price,
-      high: Math.max(lastCandle.high, price),
-      low: Math.min(lastCandle.low, price),
-    };
+      if (chartType === 'area') {
+        const areaSeries = seriesRef.current as ISeriesApi<'Area'>;
+        const baselinePrice = areaBaselinePriceRef.current;
 
-    seriesRef.current.update(updatedCandle);
-    currentCandleRef.current = updatedCandle;
-  }, []);
+        areaSeries.update({
+          time: lastCandle.time,
+          value: price,
+        });
+        if (baselinePrice !== null) {
+          areaSeries.applyOptions({
+            lineColor: price >= baselinePrice ? '#059669' : '#DC2626',
+          });
+        }
+      } else {
+        const updatedCandle: CandlestickData = {
+          ...lastCandle,
+          close: price,
+          high: Math.max(lastCandle.high, price),
+          low: Math.min(lastCandle.low, price),
+        };
+        (seriesRef.current as ISeriesApi<'Candlestick'>).update(updatedCandle);
+        currentCandleRef.current = updatedCandle;
+      }
+    },
+    [chartType]
+  );
 
   useMarketStream({
     symbol,
@@ -314,31 +387,25 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     enabled: !loading && !error,
   });
 
-  // 5. Gestion interactive du tracé de lignes de tendance
+  // 5. Annotations
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (activeTool !== 'trendline') return;
-
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
     setCurrentDraftLine({
       id: `draft-${Date.now()}`,
-      x1: x,
-      y1: y,
-      x2: x,
-      y2: y,
+      x1: e.clientX - rect.left,
+      y1: e.clientY - rect.top,
+      x2: e.clientX - rect.left,
+      y2: e.clientY - rect.top,
     });
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!currentDraftLine || activeTool !== 'trendline') return;
-
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    setCurrentDraftLine((prev) => (prev ? { ...prev, x2: x, y2: y } : null));
+    setCurrentDraftLine((prev) =>
+      prev ? { ...prev, x2: e.clientX - rect.left, y2: e.clientY - rect.top } : null
+    );
   };
 
   const handleMouseUp = () => {
@@ -347,27 +414,24 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         currentDraftLine.x2 - currentDraftLine.x1,
         currentDraftLine.y2 - currentDraftLine.y1
       );
-
-      // Si le tracé fait plus de 5px, on l'enregistre
       if (distance > 5) {
-        const nextLines = [...lines, { ...currentDraftLine, id: `line-${Date.now()}` }];
-        setLines(nextLines);
+        setLines((prev) => [...prev, { ...currentDraftLine, id: `line-${Date.now()}` }]);
         onDrawingsChange?.(true);
       }
       setCurrentDraftLine(null);
     }
   };
 
-  // Permet de vider les lignes depuis l'extérieur si déclenché
-  useEffect(() => {
-    onDrawingsChange?.(lines.length > 0);
-  }, [lines, onDrawingsChange]);
-
   return (
-    <View style={[styles.container, { backgroundColor: colors.colors_bg_secondary }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: chartType === 'area' ? '#FFFFFF' : colors.colors_bg_secondary },
+      ]}
+    >
       {loading && (
         <View style={styles.overlay}>
-          <ActivityIndicator size="large" color={colors.colors_button_buy} />
+          <ActivityIndicator size="large" color="#7C3AED" />
           <Text style={[styles.statusText, { color: colors.colors_text_secondary }]}>
             Chargement des cours...
           </Text>
@@ -382,7 +446,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         </View>
       )}
 
-      {/* Conteneur Lightweight Charts */}
       <div
         ref={chartContainerRef}
         style={{
@@ -396,7 +459,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         }}
       />
 
-      {/* Overlay SVG d'annotation superposé */}
       <div
         style={{
           position: 'absolute',
@@ -412,12 +474,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
-        <svg
-          width="100%"
-          height="100%"
-          style={{ display: 'block' }}
-        >
-          {/* Lignes de tendance confirmées */}
+        <svg width="100%" height="100%" style={{ display: 'block' }}>
           {lines.map((line) => (
             <line
               key={line.id}
@@ -425,19 +482,17 @@ export const TradingChart: React.FC<TradingChartProps> = ({
               y1={line.y1}
               x2={line.x2}
               y2={line.y2}
-              stroke={themeMode === 'dark' ? '#60a5fa' : '#2563eb'}
+              stroke="#A78BFA"
               strokeWidth={2}
             />
           ))}
-
-          {/* Ligne en cours de tracé */}
           {currentDraftLine && (
             <line
               x1={currentDraftLine.x1}
               y1={currentDraftLine.y1}
               x2={currentDraftLine.x2}
               y2={currentDraftLine.y2}
-              stroke={themeMode === 'dark' ? '#93c5fd' : '#3b82f6'}
+              stroke="#C4B5FD"
               strokeWidth={2}
               strokeDasharray="4 4"
             />

@@ -32,19 +32,19 @@ export const MarketOverviewTable: React.FC<MarketOverviewTableProps> = ({ childr
           { borderBottomColor: theme['colors_divider_text'] ?? '#E5E7EB' },
         ]}
       >
-        <Text style={[styles.headerCell, { flex: 2.5, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text style={[styles.headerCell, styles.assetColumn, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
           Actif
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.8, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text style={[styles.headerCell, styles.chartColumn, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
           Tendance 7j
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.5, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text style={[styles.headerCell, styles.priceColumn, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
           Prix
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.5, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text style={[styles.headerCell, styles.changeColumn, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
           24h %
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.5, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text style={[styles.headerCell, styles.volumeColumn, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
           Volume 24h
         </Text>
       </View>
@@ -73,5 +73,30 @@ const styles = StyleSheet.create({
     fontSize: primitives['typography_font size_font-size-12'] ?? 12,
     fontWeight: '600',
     letterSpacing: -0.2,
+  },
+  assetColumn: {
+    flex: 2.4,
+    flexBasis: 0,
+  },
+  chartColumn: {
+    flex: 2,
+    flexBasis: 0,
+    minWidth: 140,
+  },
+  priceColumn: {
+    flex: 1.4,
+    flexBasis: 0,
+    textAlign: 'right',
+  },
+  changeColumn: {
+    flex: 1.2,
+    flexBasis: 0,
+    minWidth: 88,
+    textAlign: 'right',
+  },
+  volumeColumn: {
+    flex: 1.6,
+    flexBasis: 0,
+    textAlign: 'right',
   },
 });

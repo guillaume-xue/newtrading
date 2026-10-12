@@ -1,3 +1,5 @@
+'use client';
+
 // components/TopMarketTickerBar.tsx
 import React, { useEffect, useState } from 'react';
 import {

@@ -1,18 +1,17 @@
 // components/table/MarketOverviewRow.tsx
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, useColorScheme } from 'react-native';
-import Image from 'next/image';
 import { MarketTickerInfo } from '@/components/features/market/components/MarketTickerInfo';
+import { TradingChart } from '@/components/features/market/components/TradingChart';
 import { FinancialValue } from '@/components/ui/FinancialValue';
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 import { primitives } from '@/theme/generated/primitives';
 
-import CharUpSource from '@/assets/icons/char-up.png';
-
 export interface MarketOverviewRowProps {
   countryOrCategory: string;
   name: string;
+  symbol?: string;
   price: number | string;
   changePercent: number;
   volume24h: string;
@@ -22,6 +21,7 @@ export interface MarketOverviewRowProps {
 export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
   countryOrCategory,
   name,
+  symbol,
   price,
   changePercent,
   volume24h,
@@ -57,15 +57,14 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
 
       {/* 2. Tendance 7j (Mini-Graphique) */}
       <View style={styles.colTrendChart}>
-        {CharUpSource ? (
-          <Image
-            src={CharUpSource}
-            width={64}
-            height={28}
-            alt="Tendance 7j"
-            style={{ objectFit: 'contain' }}
-          />
-        ) : null}
+        <TradingChart
+          symbol={symbol ?? name}
+          themeMode={scheme === 'dark' ? 'dark' : 'light'}
+          chartType="area"
+          activeTool="crosshair"
+          disableZoom
+          showPositions={false}
+        />
       </View>
 
       {/* 3. Prix */}
@@ -82,6 +81,7 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
           type="percent"
           showArrow={true}
           size="md"
+          style={styles.changeValue}
         />
       </View>
 
@@ -102,23 +102,38 @@ const styles = StyleSheet.create({
     paddingVertical: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
     paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
     borderBottomWidth: primitives['border width_border-thin'] ?? 1,
-    minHeight: 64,
+    minHeight: 80,
   },
   colAsset: {
-    flex: 2.5,
+    flex: 2.4,
+    flexBasis: 0,
   },
   colTrendChart: {
-    flex: 1.8,
-    alignItems: 'flex-start',
+    flex: 2,
+    flexBasis: 0,
+    minWidth: 140,
+    height: 52,
+    alignItems: 'stretch',
+    overflow: 'hidden',
   },
   colPrice: {
-    flex: 1.5,
+    flex: 1.4,
+    flexBasis: 0,
+    alignItems: 'flex-end',
   },
   colChange: {
-    flex: 1.5,
+    flex: 1.2,
+    flexBasis: 0,
+    minWidth: 88,
+    alignItems: 'flex-end',
+  },
+  changeValue: {
+    alignSelf: 'flex-end',
   },
   colVolume: {
-    flex: 1.5,
+    flex: 1.6,
+    flexBasis: 0,
+    alignItems: 'flex-end',
   },
   priceText: {
     fontSize: primitives['typography_font size_font-size-14'] ?? 14,

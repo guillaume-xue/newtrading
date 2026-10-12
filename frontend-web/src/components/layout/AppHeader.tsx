@@ -97,7 +97,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           style,
         ]}
       >
-        {/* 1. SECTION GAUCHE : Logo & Titre de marque */}
+        {/* 1. SECTION GAUCHE : Logo & Navigation */}
         <View style={styles.leftGroup}>
           <View style={styles.logoRow}>
             <Image src={LogoSvg} width={32} height={32} alt="NewTrading" />
@@ -113,7 +113,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             )}
           </View>
 
-          {/* Navigation standard pour 'guest' et 'authenticated' */}
+          {/* Navigation standard */}
           {variant !== 'chart' && (
             <View style={styles.navRow}>
               {DEFAULT_NAV_ITEMS.map((item) => {
@@ -147,7 +147,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </View>
           )}
 
-          {/* Barre d'outils dédiée à la vue Graphique / Chart */}
+          {/* Outils vue Graphique */}
           {variant === 'chart' && (
             <View style={styles.chartToolsGroup}>
               <View style={styles.chartSearchWrapper}>
@@ -183,7 +183,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 ]}
               />
 
-              {/* Outil Statistiques / Indicateurs */}
               <Pressable
                 style={[
                   styles.iconButton,
@@ -200,7 +199,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 ]}
               />
 
-              {/* Bouton Alarme */}
               <Pressable
                 onPress={handleOpenAlert}
                 style={[
@@ -222,7 +220,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           )}
         </View>
 
-        {/* 2. SECTION CENTRALE */}
+        {/* 2. SECTION CENTRALE : Barre de recherche à largeur constante */}
         {variant !== 'chart' && (
           <View style={styles.centerSearchWrapper}>
             <SearchBar
@@ -234,7 +232,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </View>
         )}
 
-        {/* 3. SECTION DROITE */}
+        {/* 3. SECTION DROITE : Aligné à droite avec minWidth */}
         <View style={styles.rightGroup}>
           {variant === 'guest' ? (
             <View style={styles.guestActionRow}>
@@ -244,6 +242,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 shape="rounded"
                 size="sm"
                 onPress={onLoginPress}
+                style={styles.headerActionButton}
               />
 
               <Button
@@ -252,6 +251,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 shape="rounded"
                 size="sm"
                 onPress={onRegisterPress}
+                style={styles.headerActionButton}
               />
             </View>
           ) : (
@@ -279,7 +279,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </View>
       </View>
 
-      {/* Modal d'Alerte */}
       <CreateAlertModal
         isOpen={isAlertModalOpen}
         onClose={() => setIsAlertModalOpen(false)}
@@ -297,13 +296,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+    paddingHorizontal: 16, // Réduit de 24 à 16 pour éviter tout débordement à droite
     borderBottomWidth: primitives['border width_border-thin'] ?? 1,
   },
   leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+    gap: 16, // Réduit de 24 à 16 pour compacter la navigation
   },
   logoRow: {
     flexDirection: 'row',
@@ -322,8 +321,8 @@ const styles = StyleSheet.create({
     gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   navItem: {
-    paddingVertical: primitives['spacing & layout_padding & margin_space-1'] ?? 6,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8, // Légèrement compacté (8 au lieu de 10)
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
   },
   activeNavItem: {},
@@ -343,7 +342,7 @@ const styles = StyleSheet.create({
     gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
   },
   chartSearchWrapper: {
-    width: 190,
+    width: 140,
     overflow: 'hidden',
   },
   separator: {
@@ -355,8 +354,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    minHeight: 30,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
   },
   chipText: {
@@ -364,37 +364,45 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   iconButton: {
-    padding: 8,
+    width: 30,
+    height: 30,
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerActionButton: {
+    minHeight: 30,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
   centerSearchWrapper: {
-    flex: 1,
-    maxWidth: 260,
-    marginHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+    width: 170, // Réduit de 240 à 170 : tout rentre sans déborder
+    marginLeft: 12,
+    marginRight: 'auto',
   },
   rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0, // Empêche le bloc utilisateur d'être compressé ou poussé hors de l'écran
   },
   guestActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+    gap: 8,
   },
   authActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-4'] ?? 20,
+    gap: 12, // Compacté de 20 à 12 pour sécuriser l'icône profil
   },
   iconActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+    gap: 8, // Compacté de 12 à 8
   },
   actionIconBtn: {
-    padding: 6,
+    width: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
