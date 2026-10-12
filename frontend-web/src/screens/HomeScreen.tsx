@@ -92,7 +92,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     width: '100%',
-    // @ts-ignore
     minHeight: '100vh',
   },
   scrollContent: {

@@ -1,5 +1,5 @@
 // src/components/Switch.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Pressable,
@@ -39,7 +39,7 @@ export const Switch: React.FC<SwitchProps> = ({
   const theme = scheme === 'dark' ? darkColors : lightColors;
 
   // 0 = gauche, 1 = droite
-  const animatedValue = useRef(new Animated.Value(value === 'left' ? 0 : 1)).current;
+  const [animatedValue] = useState(() => new Animated.Value(value === 'left' ? 0 : 1));
 
   useEffect(() => {
     Animated.timing(animatedValue, {
@@ -48,13 +48,17 @@ export const Switch: React.FC<SwitchProps> = ({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false, // Fonctionne à 100% sur React Native Web et iOS
     }).start();
-  }, [value]);
+  }, [animatedValue, value]);
 
   // Interpolation de la position X
-  const leftPosition = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [PADDING, PADDING + THUMB_WIDTH],
-  });
+  const leftPosition = useMemo(
+    () =>
+      animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [PADDING, PADDING + THUMB_WIDTH],
+      }),
+    [animatedValue]
+  );
 
   return (
     <View

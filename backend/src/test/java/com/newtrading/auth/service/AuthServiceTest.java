@@ -121,6 +121,29 @@ class AuthServiceTest {
             verify(portfolioRepository, never()).save(any());
             verify(tokenProvider, never()).generateToken(any(), any());
         }
+
+        @Test
+        @DisplayName("Doit normaliser l'email avant de vérifier l'unicité et de le sauvegarder")
+        void shouldNormalizeEmailBeforeCheckingUniqueness() {
+            RegisterRequest request = new RegisterRequest("  TRADER@TEST.COM ", "Password123!");
+            UUID userId = UUID.randomUUID();
+            User savedUser = User.builder()
+                    .id(userId)
+                    .email("trader@test.com")
+                    .passwordHash("encoded")
+                    .build();
+
+            given(userRepository.existsByEmail("trader@test.com")).willReturn(false);
+            given(passwordEncoder.encode(request.password())).willReturn("encoded");
+            given(userRepository.save(any(User.class))).willReturn(savedUser);
+            given(tokenProvider.generateToken(userId, "trader@test.com")).willReturn("token");
+
+            AuthResponse response = authService.register(request);
+
+            assertThat(response.email()).isEqualTo("trader@test.com");
+            verify(userRepository).existsByEmail("trader@test.com");
+            verify(userRepository, never()).existsByEmail("  TRADER@TEST.COM ");
+        }
     }
 
     @Nested

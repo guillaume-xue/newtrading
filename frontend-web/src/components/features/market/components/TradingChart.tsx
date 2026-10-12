@@ -78,7 +78,7 @@ const generateLocalMockCandles = (): CandlestickData[] => {
 export const TradingChart: React.FC<TradingChartProps> = ({
   symbol,
   themeMode = 'dark',
-  activeTool = 'cursor',
+  activeTool = 'crosshair',
   showPositions = true,
   positions = [],
   onDrawingsChange,
@@ -156,7 +156,14 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, [themeMode]);
+  }, [
+    colors.colors_bg_secondary,
+    colors.colors_button_buy,
+    colors.colors_button_sell,
+    colors.colors_divider_text,
+    colors.colors_text_secondary,
+    themeMode,
+  ]);
 
   // 2. Gestion et affichage des lignes de position (Entry, TP, SL)
   useEffect(() => {
@@ -166,7 +173,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     activePriceLinesRef.current.forEach((line) => {
       try {
         seriesRef.current?.removePriceLine(line);
-      } catch (e) {
+      } catch {
         // Ignorer si la série a été détruite
       }
     });
@@ -218,7 +225,13 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         activePriceLinesRef.current.push(slLine);
       }
     });
-  }, [positions, showPositions, symbol, themeMode]);
+  }, [
+    colors.colors_button_buy,
+    colors.colors_button_sell,
+    positions,
+    showPositions,
+    symbol,
+  ]);
 
   // 3. Chargement de l'historique des chandeliers
   useEffect(() => {
@@ -246,7 +259,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
           } else {
             formattedData = generateLocalMockCandles();
           }
-        } catch (fetchErr) {
+        } catch {
           formattedData = generateLocalMockCandles();
         }
 
@@ -259,7 +272,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
             chartRef.current?.timeScale().fitContent();
           });
         }
-      } catch (err: any) {
+      } catch {
         if (isMounted) {
           setError('Erreur inattendue lors de l’affichage du cours.');
         }

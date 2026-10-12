@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { isAxiosError } from 'axios';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Image from 'next/image';
 
@@ -8,7 +9,6 @@ import DotsIcon from '@/assets/icons/fi-rr-menu-dots.svg';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
 import { tradeApi } from '@/lib/api/tradeApi';
 
 interface OrderFormPanelProps {
@@ -20,7 +20,6 @@ interface OrderFormPanelProps {
 
 export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
   assetCode,
-  currentPrice,
   availableBalance,
   onOrderSuccess,
 }) => {
@@ -48,8 +47,11 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
         quantity: parsedQuantity,
       });
       onOrderSuccess();
-    } catch (err: any) {
-      setErrorMessage(err?.response?.data?.message ?? 'Erreur d’exécution de l’ordre');
+    } catch (error: unknown) {
+      const message = isAxiosError(error)
+        ? error.response?.data?.message
+        : undefined;
+      setErrorMessage(message ?? 'Erreur d’exécution de l’ordre');
     } finally {
       setLoading(false);
     }

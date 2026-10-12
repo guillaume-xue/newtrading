@@ -162,7 +162,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
             ) : (
               <Pressable onPress={() => changeAuthMode('signup')}>
                 <Text style={[styles.loginLink, { color: primitives.color_blue_600 }]}>
-                  S'inscrire
+                  S&apos;inscrire
                 </Text>
               </Pressable>
             )}
@@ -189,7 +189,6 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // @ts-ignore
     minHeight: '100vh',
     width: '100%',
     position: 'relative',

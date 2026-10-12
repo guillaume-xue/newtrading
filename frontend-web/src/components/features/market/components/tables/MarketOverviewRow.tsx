@@ -1,7 +1,7 @@
 // components/table/MarketOverviewRow.tsx
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, useColorScheme } from 'react-native';
-import Image, { StaticImageData } from 'next/image';
+import Image from 'next/image';
 import { MarketTickerInfo } from '@/components/features/market/components/MarketTickerInfo';
 import { FinancialValue } from '@/components/ui/FinancialValue';
 import { darkColors } from '@/theme/generated/dark';

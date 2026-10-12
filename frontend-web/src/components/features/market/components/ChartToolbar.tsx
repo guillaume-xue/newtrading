@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -31,21 +31,17 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   initialX = 12,
   initialY = 16,
 }) => {
-  const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
+  const [pan] = useState(() => new Animated.ValueXY({ x: initialX, y: initialY }));
 
-  const panResponder = useRef(
-    PanResponder.create({
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
       },
       onPanResponderGrant: () => {
-        pan.setOffset({
-          // @ts-ignore
-          x: pan.x._value,
-          // @ts-ignore
-          y: pan.y._value,
-        });
+        pan.extractOffset();
         pan.setValue({ x: 0, y: 0 });
       },
       onPanResponderMove: Animated.event(
@@ -55,10 +51,11 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
       onPanResponderRelease: () => {
         pan.flattenOffset();
       },
-    })
-  ).current;
+      }),
+    [pan]
+  );
 
-  const tools: { id: ChartTool; icon: any; label: string }[] = [
+  const tools: { id: ChartTool; icon: typeof plusIcon; label: string }[] = [
     { id: 'crosshair', icon: plusIcon, label: 'Curseur' },
     { id: 'trendline', icon: pencilIcon, label: 'Tracé' },
     { id: 'text', icon: textIcon, label: 'Texte' },
@@ -121,8 +118,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-    cursor: 'grab',
-  } as any,
+  },
   dragHandle: {
     width: '100%',
     flexDirection: 'row',

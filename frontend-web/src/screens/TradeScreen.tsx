@@ -15,7 +15,7 @@ import { OrderFormPanel } from '@/components/portfolio/components/OrderFormPanel
 import { tradeApi, PnLData } from '@/lib/api/tradeApi';
 
 export const TradeScreen: React.FC = () => {
-  const [symbol, setSymbol] = useState<string>('BTC/USD');
+  const symbol = 'BTC/USD';
   const [searchValue, setSearchValue] = useState<string>('');
   const [activeTool, setActiveTool] = useState<ChartTool>('crosshair');
   const [pnlData, setPnlData] = useState<PnLData | null>(null);
@@ -23,18 +23,32 @@ export const TradeScreen: React.FC = () => {
 
   const currentPrice = 63432.5;
 
+  const loadPortfolio = useCallback(() => tradeApi.getPnL(), []);
+
   const fetchPortfolio = useCallback(async () => {
     try {
-      const res = await tradeApi.getPnL();
+      const res = await loadPortfolio();
       setPnlData(res);
     } catch {
       // Ignoré pour conserver les valeurs de secours
     }
-  }, []);
+  }, [loadPortfolio]);
 
   useEffect(() => {
-    fetchPortfolio();
-  }, [fetchPortfolio]);
+    let isMounted = true;
+
+    loadPortfolio()
+      .then((res) => {
+        if (isMounted) setPnlData(res);
+      })
+      .catch(() => {
+        // Ignoré pour conserver les valeurs de secours
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadPortfolio]);
 
   const formattedBalance = pnlData
     ? `${pnlData.currentBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
@@ -114,7 +128,6 @@ export const TradeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   screenContainer: {
     width: '100%',
-    // @ts-ignore
     height: '100vh',
     backgroundColor: '#F3F4F6',
     flexDirection: 'column',

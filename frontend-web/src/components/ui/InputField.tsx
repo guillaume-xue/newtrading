@@ -181,8 +181,8 @@ const styles = StyleSheet.create({
     margin: 0,
     ...Platform.select({
       web: {
-        outlineStyle: 'none',
-      } as any,
+        outlineWidth: 0,
+      },
     }),
   },
   inputSingleLine: {

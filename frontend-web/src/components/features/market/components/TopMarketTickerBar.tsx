@@ -1,5 +1,5 @@
 // components/TopMarketTickerBar.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -50,10 +50,10 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
   const theme = scheme === 'dark' ? darkColors : lightColors;
 
   const [contentWidth, setContentWidth] = useState(0);
-  const animatedMarquee = useRef(new Animated.Value(0)).current;
+  const [animatedMarquee] = useState(() => new Animated.Value(0));
 
   // Animation du clignotement
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [pulseAnim] = useState(() => new Animated.Value(1));
 
   // 1. Boucle de clignotement du point vert
   useEffect(() => {

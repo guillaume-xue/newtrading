@@ -1,5 +1,5 @@
 // components/auth/SignUpModal.tsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import Image from 'next/image';
+import { isAxiosError } from 'axios';
 
 import Logo from '@/assets/icons/Logo.svg';
 import { Button } from '@/components/ui/Button';
@@ -54,11 +55,11 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Réinitialiser les erreurs lorsque l'utilisateur modifie ses saisies
-  useEffect(() => {
-    if (apiError) setApiError(null);
-    if (isEmailAlreadyExists) setIsEmailAlreadyExists(false);
-  }, [email, password, confirmPassword]);
+  const handleFieldChange = (setter: (value: string) => void, value: string) => {
+    setter(value);
+    setApiError(null);
+    setIsEmailAlreadyExists(false);
+  };
 
   // Validation Email
   const isEmailValid = useMemo(() => EMAIL_REGEX.test(email.trim()), [email]);
@@ -120,9 +121,9 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
 
       handleReset();
       onSuccess();
-    } catch (error: any) {
-      const status = error?.response?.status;
-      const message = error?.response?.data?.message;
+    } catch (error: unknown) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      const data = isAxiosError(error) ? error.response?.data : undefined;
 
       if (status === 409) {
         setIsEmailAlreadyExists(true);
@@ -130,9 +131,9 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
         setStep('email');
       } else if (status === 400) {
         const backendMsg =
-          error?.response?.data?.detail ||
-          error?.response?.data?.message ||
-          error?.response?.data?.errors?.[0]?.defaultMessage ||
+          data?.detail ||
+          data?.message ||
+          data?.errors?.[0]?.defaultMessage ||
           'Le mot de passe ne respecte pas les critères de sécurité.';
         setApiError(backendMsg);
       } else {
@@ -253,7 +254,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                   <InputField
                     placeholder="E-mail"
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={(value) => handleFieldChange(setEmail, value)}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -268,7 +269,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                     <InputField
                       placeholder="Mot de passe"
                       value={password}
-                      onChangeText={setPassword}
+                      onChangeText={(value) => handleFieldChange(setPassword, value)}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -332,7 +333,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                     <InputField
                       placeholder="Confirmer le mot de passe"
                       value={confirmPassword}
-                      onChangeText={setConfirmPassword}
+                      onChangeText={(value) => handleFieldChange(setConfirmPassword, value)}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -396,7 +397,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'space-between',
     alignItems: 'center',
-    // @ts-ignore
     boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.15)',
     elevation: 8,
   },

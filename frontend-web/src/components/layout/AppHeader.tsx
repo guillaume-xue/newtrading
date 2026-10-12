@@ -71,7 +71,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   currentPrice,
   onLoginPress,
   onRegisterPress,
-  onNotificationsPress,
   onSettingsPress,
   onProfilePress,
   onAlertPress,

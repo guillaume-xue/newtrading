@@ -1,7 +1,6 @@
 // src/components/SearchBar.tsx
 import React, { useState, useRef } from 'react';
 import {
-  View,
   TextInput,
   Pressable,
   StyleSheet,
@@ -39,7 +38,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onBlur,
   ...props
 }) => {
-  const [isFocused, setIsFocused] = useState(false);
+  const [, setIsFocused] = useState(false);
   const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   const scheme = useColorScheme();
@@ -129,8 +128,8 @@ const styles = StyleSheet.create({
     margin: 0,
     ...Platform.select({
       web: {
-        outlineStyle: 'none',
-      } as any,
+        outlineWidth: 0,
+      },
     }),
   },
   input_md: {
