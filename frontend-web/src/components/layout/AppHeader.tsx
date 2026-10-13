@@ -11,12 +11,14 @@ import {
   useColorScheme,
 } from 'react-native';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 import LogoSvg from '@/assets/icons/Logo.svg';
 import BellIcon from '@/assets/icons/bell.svg';
 import GearIcon from '@/assets/icons/gear.svg';
 import ProfileIcon from '@/assets/icons/profile.svg';
 import StatsIcon from '@/assets/icons/stats.svg';
+import ChatArrowGrowIcon from '@/assets/icons/chat-arrow-grow.svg';
 
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +28,7 @@ import { CreateAlertModal } from '@/components/features/market/components/Create
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 import { primitives } from '@/theme/generated/primitives';
+import { TimeRange, TIME_RANGES } from '@/types/timeRange';
 
 export type HeaderVariant = 'guest' | 'authenticated' | 'chart';
 
@@ -51,6 +54,10 @@ export interface AppHeaderProps {
   cashAmount?: number | string;
   assetCode?: string;
   currentPrice?: number;
+  selectedRange?: TimeRange;
+  onSelectRange?: (range: TimeRange) => void;
+  chartType?: 'candlestick' | 'area';
+  onToggleChartType?: () => void;
   onLoginPress?: () => void;
   onRegisterPress?: () => void;
   onNotificationsPress?: () => void;
@@ -69,6 +76,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   cashAmount = 100000,
   assetCode = 'AAPL',
   currentPrice,
+  selectedRange = '1D',
+  onSelectRange,
+  chartType = 'candlestick',
+  onToggleChartType,
   onLoginPress,
   onRegisterPress,
   onNotificationsPress,
@@ -77,13 +88,32 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onAlertPress,
   style,
 }) => {
+  const router = useRouter();
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? darkColors : lightColors;
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
+
+  const handleLogoPress = () => {
+    router.push('/');
+  };
 
   const handleOpenAlert = () => {
     setIsAlertModalOpen(true);
     onAlertPress?.();
+  };
+
+  const handleSelectTimeRange = (range: TimeRange) => {
+    onSelectRange?.(range);
+    setIsRangeMenuOpen(false);
+  };
+
+  const handleNotificationsPress = () => {
+    onNotificationsPress?.();
+  };
+
+  const handleSettingsPress = () => {
+    onSettingsPress?.();
   };
 
   return (
@@ -98,9 +128,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           style,
         ]}
       >
-        {/* 1. SECTION GAUCHE : Logo & Titre de marque */}
+        {/* 1. SECTION GAUCHE */}
         <View style={styles.leftGroup}>
-          <View style={styles.logoRow}>
+          <Pressable onPress={handleLogoPress} style={styles.logoRow}>
             <Image src={LogoSvg} width={32} height={32} alt="NewTrading" />
             {variant !== 'chart' && (
               <Text
@@ -112,9 +142,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 NewTrading
               </Text>
             )}
-          </View>
+          </Pressable>
 
-          {/* Navigation standard pour 'guest' et 'authenticated' */}
           {variant !== 'chart' && (
             <View style={styles.navRow}>
               {DEFAULT_NAV_ITEMS.map((item) => {
@@ -135,9 +164,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       style={[
                         styles.navText,
                         isActive ? styles.navTextActive : styles.navTextInactive,
-                        {
-                          color: theme['colors_text_primary'] ?? '#0B0F19',
-                        },
+                        { color: theme['colors_text_primary'] ?? '#0B0F19' },
                       ]}
                     >
                       {item.label}
@@ -148,7 +175,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </View>
           )}
 
-          {/* Barre d'outils dédiée à la vue Graphique / Chart */}
+          {/* Outils vue Graphique avec sélecteur d'intervalle */}
           {variant === 'chart' && (
             <View style={styles.chartToolsGroup}>
               <View style={styles.chartSearchWrapper}>
@@ -168,13 +195,84 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 ]}
               />
 
+              {/* Bouton d'intervalle temporel avec dropdown */}
+              <View style={styles.rangeSelectorWrapper}>
+                <Pressable
+                  onPress={() => setIsRangeMenuOpen((prev) => !prev)}
+                  style={[
+                    styles.rangeButton,
+                    { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                  ]}
+                >
+                  <Text style={[styles.chipText, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                    {selectedRange}
+                  </Text>
+                </Pressable>
+
+                {isRangeMenuOpen && (
+                  <View
+                    style={[
+                      styles.rangeDropdown,
+                      {
+                        backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
+                        borderColor: theme['colors_divider_text'] ?? '#E5E7EB',
+                      },
+                    ]}
+                  >
+                    {TIME_RANGES.map((range) => {
+                      const isSelected = range === selectedRange;
+                      return (
+                        <Pressable
+                          key={range}
+                          onPress={() => handleSelectTimeRange(range)}
+                          style={[
+                            styles.rangeDropdownItem,
+                            isSelected && {
+                              backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.rangeDropdownText,
+                              {
+                                color: isSelected
+                                  ? '#2563EB'
+                                  : (theme['colors_text_primary'] ?? '#0B0F19'),
+                                fontWeight: isSelected ? '700' : '500',
+                              },
+                            ]}
+                          >
+                            {range}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+
+              <View
+                style={[
+                  styles.separator,
+                  { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
+                ]}
+              />
+
+              {/* Bascule Candlestick / Line (Area) */}
               <Pressable
+                onPress={onToggleChartType}
                 style={[
                   styles.iconButton,
                   { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
                 ]}
               >
-                <Text style={styles.chipText}>1D</Text>
+                <Image
+                  src={chartType === 'candlestick' ? ChatArrowGrowIcon : StatsIcon}
+                  width={16}
+                  height={16}
+                  alt={chartType === 'candlestick' ? 'Vue Ligne' : 'Vue Bougies'}
+                />
               </Pressable>
 
               <View
@@ -184,24 +282,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 ]}
               />
 
-              {/* Outil Statistiques / Indicateurs */}
-              <Pressable
-                style={[
-                  styles.iconButton,
-                  { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
-                ]}
-              >
-                <Image src={StatsIcon} width={16} height={16} alt="Indicateurs" />
-              </Pressable>
-
-              <View
-                style={[
-                  styles.separator,
-                  { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
-                ]}
-              />
-
-              {/* Bouton Alarme */}
               <Pressable
                 onPress={handleOpenAlert}
                 style={[
@@ -245,32 +325,27 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 shape="rounded"
                 size="sm"
                 onPress={onLoginPress}
+                style={styles.headerActionButton}
               />
-
               <Button
                 label="Ouvrir un compte"
                 variant="primary"
                 shape="rounded"
                 size="sm"
                 onPress={onRegisterPress}
+                style={styles.headerActionButton}
               />
             </View>
           ) : (
             <View style={styles.authActionRow}>
-              <MarketCashInfo
-                label="LIQUIDITÉS"
-                amount={cashAmount}
-              />
-
+              <MarketCashInfo label="LIQUIDITÉS" amount={cashAmount} />
               <View style={styles.iconActions}>
-                <Pressable onPress={handleOpenAlert} style={styles.actionIconBtn}>
+                <Pressable onPress={handleNotificationsPress} style={styles.actionIconBtn}>
                   <Image src={BellIcon} width={20} height={20} alt="Alertes" />
                 </Pressable>
-
-                <Pressable onPress={onSettingsPress} style={styles.actionIconBtn}>
+                <Pressable onPress={handleSettingsPress} style={styles.actionIconBtn}>
                   <Image src={GearIcon} width={20} height={20} alt="Paramètres" />
                 </Pressable>
-
                 <Pressable onPress={onProfilePress} style={styles.actionIconBtn}>
                   <Image src={ProfileIcon} width={20} height={20} alt="Profil" />
                 </Pressable>
@@ -280,7 +355,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </View>
       </View>
 
-      {/* Modal d'Alerte */}
       <CreateAlertModal
         isOpen={isAlertModalOpen}
         onClose={() => setIsAlertModalOpen(false)}
@@ -298,18 +372,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+    paddingHorizontal: 16,
     borderBottomWidth: primitives['border width_border-thin'] ?? 1,
+    zIndex: 60,
   },
   leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+    gap: 16,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+    cursor: 'pointer',
   },
   brandTitle: {
     fontSize: primitives['typography_font size_font-size-18'] ?? 18,
@@ -323,8 +399,8 @@ const styles = StyleSheet.create({
     gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   navItem: {
-    paddingVertical: primitives['spacing & layout_padding & margin_space-1'] ?? 6,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
   },
   activeNavItem: {},
@@ -332,19 +408,15 @@ const styles = StyleSheet.create({
     fontSize: primitives['typography_font size_font-size-14'] ?? 14,
     lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
   },
-  navTextActive: {
-    fontWeight: '700',
-  },
-  navTextInactive: {
-    fontWeight: '500',
-  },
+  navTextActive: { fontWeight: '700' },
+  navTextInactive: { fontWeight: '500' },
   chartToolsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
   },
   chartSearchWrapper: {
-    width: 190,
+    width: 140,
     overflow: 'hidden',
   },
   separator: {
@@ -352,12 +424,44 @@ const styles = StyleSheet.create({
     height: 18,
     marginHorizontal: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
+  rangeSelectorWrapper: {
+    position: 'relative',
+    zIndex: 70,
+  },
+  rangeButton: {
+    minWidth: 38,
+    height: 30,
+    paddingHorizontal: 6,
+    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rangeDropdown: {
+    position: 'absolute',
+    top: 36,
+    left: 0,
+    minWidth: 64,
+    borderRadius: 8,
+    borderWidth: 1,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+    paddingVertical: 4,
+    zIndex: 80,
+  },
+  rangeDropdownItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  rangeDropdownText: {
+    fontSize: 12,
+  },
   alarmChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    minHeight: 30,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
   },
   chipText: {
@@ -365,38 +469,48 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   iconButton: {
-    padding: 8,
+    width: 30,
+    height: 30,
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerActionButton: {
+    minHeight: 30,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
   centerSearchWrapper: {
-    flex: 1,
-    maxWidth: 260,
-    marginHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+    width: 170,
+    marginLeft: 12,
+    marginRight: 'auto',
   },
   rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   guestActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+    gap: 8,
   },
   authActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-4'] ?? 20,
+    gap: 12,
   },
   iconActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+    gap: 8,
   },
   actionIconBtn: {
-    padding: 6,
+    width: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
 });
+
+export default AppHeader;

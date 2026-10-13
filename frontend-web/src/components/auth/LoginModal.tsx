@@ -45,7 +45,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   useEffect(() => {
     if (error) clearError();
-  }, [email, password]);
+  }, [email, password, error, clearError]);
 
   const isValid = useMemo(() => {
     return EMAIL_REGEX.test(email.trim()) && password.length >= 1;
@@ -172,7 +172,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       }}
                     >
                       <Text style={[styles.linkText, { color: primitives.color_blue_600 }]}>
-                        S'inscrire
+                        S&apos;inscrire
                       </Text>
                     </Pressable>
                   </View>
@@ -224,7 +224,6 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     justifyContent: 'space-between',
     alignItems: 'center',
-    // @ts-ignore
     boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.15)',
     elevation: 8,
   },

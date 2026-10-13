@@ -30,12 +30,13 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+        String normalizedEmail = request.email().toLowerCase().trim();
+        if (userRepository.existsByEmail(normalizedEmail)) {
             throw new BusinessException("Cet email est déjà associé à un compte", HttpStatus.CONFLICT);
         }
 
         User user = User.builder()
-                .email(request.email().toLowerCase().trim())
+                .email(normalizedEmail)
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .authProvider("LOCAL")
                 .build();

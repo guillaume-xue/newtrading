@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Pressable,
   Platform,
   useColorScheme,
+  Animated,
 } from 'react-native';
 
 import { darkColors } from '@/theme/generated/dark';
@@ -16,7 +17,6 @@ import { primitives } from '@/theme/generated/primitives';
 
 export interface InputFieldProps extends TextInputProps {
   label?: string;
-  /** Peut être un booléen ou directement le message d'erreur textuel */
   error?: boolean | string;
   errorMessage?: string;
   suffix?: string | React.ReactNode;
@@ -25,79 +25,122 @@ export interface InputFieldProps extends TextInputProps {
 export const InputField: React.FC<InputFieldProps> = ({
   label,
   value,
+  defaultValue,
+  placeholder,
   error = false,
   errorMessage,
   suffix,
   style,
   onFocus,
   onBlur,
+  onChangeText,
   ...props
 }) => {
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? darkColors : lightColors;
 
   const [isFocused, setIsFocused] = useState(false);
-  const inputRef = React.useRef<React.ComponentRef<typeof TextInput>>(null);
+  const [internalValue, setInternalValue] = useState(
+    (value !== undefined ? value : defaultValue) ?? ''
+  );
+  const inputRef = useRef<TextInput>(null);
 
-  // Détection d'erreur qu'elle vienne de `error` (string ou boolean) ou de `errorMessage`
+  // Valeur d'animation : 0 = état inactif/vide (centré), 1 = état actif/rempli (flottant en haut)
+  const isFilled = (value !== undefined ? String(value) : String(internalValue)).length > 0;
+  const isFloating = isFocused || isFilled;
+  const animatedValue = useRef(new Animated.Value(isFloating ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: isFloating ? 1 : 0,
+      duration: 180,
+      useNativeDriver: false, // Nécessaire car interpolation sur fontSize / top
+    }).start();
+  }, [isFloating, animatedValue]);
+
+  // Synchronisation de la valeur interne si non contrôlée
+  const handleChangeText = (text: string) => {
+    if (value === undefined) {
+      setInternalValue(text);
+    }
+    onChangeText?.(text);
+  };
+
   const hasError = Boolean(error) || Boolean(errorMessage);
   const resolvedErrorMessage = typeof error === 'string' ? error : errorMessage;
 
-  const getStatusColor = () => {
-    if (hasError) {
-      return theme['colors_input_warning-text'];
-    }
-    if (isFocused) {
-      return theme['colors_input_select-text'];
-    }
-    return theme['colors_input_secondary-text'];
-  };
-
   const getBorderColor = () => {
-    if (hasError) {
-      return theme['colors_input_warning-border'];
-    }
-    if (isFocused) {
-      return theme['colors_input_select-border'];
-    }
+    if (hasError) return theme['colors_input_warning-border'];
+    if (isFocused) return theme['colors_input_select-border'];
     return theme['colors_input_primary-border'];
   };
 
-  const labelColor = getStatusColor();
-  const borderColor = getBorderColor();
+  const getLabelColor = () => {
+    if (hasError) return theme['colors_input_warning-text'];
+    if (isFocused) return theme['colors_input_select-text'];
+    return theme['colors_input_secondary-text'];
+  };
+
+  // Interpolations pour l'animation
+  // Le label passe d'un centrage vertical (16px du haut) à sa position haute (6px du haut)
+  const labelTop = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [17, 6],
+  });
+
+  const labelFontSize = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [15, 11],
+  });
+
+  const effectiveLabel = label || placeholder;
 
   return (
     <View style={styles.outerContainer}>
       <Pressable
-        onPress={() => inputRef.current?.focus()}
+        onPress={() =>
+          (inputRef.current as unknown as { focus: () => void } | null)?.focus()
+        }
         accessibilityRole="none"
         style={[
           styles.container,
           {
             backgroundColor: theme['colors_input_primary-bg'],
-            borderColor: borderColor,
+            borderColor: getBorderColor(),
           },
-          label ? styles.containerWithLabel : styles.containerWithoutLabel,
         ]}
       >
         <View style={styles.inputWrapper}>
-          {label ? (
-            <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
-              {label}
-            </Text>
+          {effectiveLabel ? (
+            <Animated.Text
+              style={[
+                styles.floatingLabel,
+                {
+                  top: labelTop,
+                  fontSize: labelFontSize,
+                  color: getLabelColor(),
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {effectiveLabel}
+            </Animated.Text>
           ) : null}
 
           <TextInput
             ref={inputRef}
             value={value}
+            defaultValue={defaultValue}
+            onChangeText={handleChangeText}
             aria-invalid={hasError}
             style={[
               styles.input,
               { color: theme['colors_input_primary-text'] },
-              !label && styles.inputSingleLine,
+              // Descend le texte lorsque le label est affiché pour éviter tout chevauchement
+              effectiveLabel && styles.inputShifted,
               style,
+              styles.webInputReset,
             ]}
-            placeholderTextColor={theme['colors_input_secondary-text']}
             onFocus={(e) => {
               setIsFocused(true);
               onFocus?.(e);
@@ -128,7 +171,6 @@ export const InputField: React.FC<InputFieldProps> = ({
         ) : null}
       </Pressable>
 
-      {/* Affichage du message d'erreur avec rôle d'accessibilité */}
       {hasError && resolvedErrorMessage ? (
         <Text
           accessibilityRole="alert"
@@ -150,28 +192,26 @@ const styles = StyleSheet.create({
     marginBottom: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
   },
   container: {
-    minHeight: 56,
+    height: 56, // Hauteur fixe standard pour garantir l'alignement du label
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
     borderWidth: primitives['border width_border-thin'] ?? 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
-  },
-  containerWithLabel: {
-    paddingVertical: 6,
-  },
-  containerWithoutLabel: {
-    paddingVertical: 12,
+    position: 'relative',
   },
   inputWrapper: {
     flex: 1,
+    height: '100%',
     justifyContent: 'center',
+    position: 'relative',
   },
-  label: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+  floatingLabel: {
+    position: 'absolute',
+    left: 0,
+    pointerEvents: 'none',
     fontWeight: '500',
-    marginBottom: 2,
+    zIndex: 1,
   },
   input: {
     fontSize: primitives['typography_font size_font-size-16'] ?? 16,
@@ -179,14 +219,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     padding: 0,
     margin: 0,
-    ...Platform.select({
-      web: {
-        outlineStyle: 'none',
-      } as any,
-    }),
   },
-  inputSingleLine: {
-    height: '100%',
+  webInputReset: Platform.select({
+    web: {
+      outlineWidth: 0,
+      outlineColor: 'transparent',
+      boxShadow: 'none',
+    },
+    default: {},
+  }),
+  inputShifted: {
+    marginTop: 16, // Crée l'espace nécessaire sous le petit label
   },
   suffixContainer: {
     marginLeft: primitives['spacing & layout_padding & margin_space-2'] ?? 8,

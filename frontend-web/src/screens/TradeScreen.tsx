@@ -1,40 +1,76 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
 import Image from 'next/image';
 
 import walletIcon from '@/assets/icons/money-bill-transfer 1.svg';
 import alarmClockIcon from '@/assets/icons/alarm-clock.svg';
-import listIcon from '@/assets/icons/list 1.svg';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { TradingChart } from '@/components/features/market/components/TradingChart';
 import { ChartToolbar, ChartTool } from '@/components/features/market/components/ChartToolbar';
+import { AlertPanel } from '@/components/features/market/components/AlertPanel';
+import { CreateAlertModal } from '@/components/features/market/components/CreateAlertModal';
 import { OrderFormPanel } from '@/components/portfolio/components/OrderFormPanel';
 import { tradeApi, PnLData } from '@/lib/api/tradeApi';
+import { TimeRange } from '@/types/timeRange';
 
 export const TradeScreen: React.FC = () => {
-  const [symbol, setSymbol] = useState<string>('BTC/USD');
+  const symbol = 'BTC/USD';
   const [searchValue, setSearchValue] = useState<string>('');
   const [activeTool, setActiveTool] = useState<ChartTool>('crosshair');
+  const [selectedRange, setSelectedRange] = useState<TimeRange>('1D');
+  const [chartType, setChartType] = useState<'candlestick' | 'area'>('candlestick');
+  const [chartAreaBounds, setChartAreaBounds] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [pnlData, setPnlData] = useState<PnLData | null>(null);
-  const [activeRightTab, setActiveRightTab] = useState<'order' | 'alerts' | 'watchlist'>('order');
+  const [activeRightTab, setActiveRightTab] = useState<'order' | 'alerts' | null>('order');
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [alertRefreshKey, setAlertRefreshKey] = useState(0);
 
   const currentPrice = 63432.5;
 
+  const toggleChartType = () => {
+    setChartType((prev) => (prev === 'candlestick' ? 'area' : 'candlestick'));
+  };
+
+  const toggleRightPanel = (panel: 'order' | 'alerts') => {
+    setActiveRightTab((currentPanel) => (currentPanel === panel ? null : panel));
+  };
+
+  const handleChartAreaLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setChartAreaBounds({ width, height });
+    }
+  };
+
+  const loadPortfolio = useCallback(() => tradeApi.getPnL(), []);
+
   const fetchPortfolio = useCallback(async () => {
     try {
-      const res = await tradeApi.getPnL();
+      const res = await loadPortfolio();
       setPnlData(res);
     } catch {
       // Ignoré pour conserver les valeurs de secours
     }
-  }, []);
+  }, [loadPortfolio]);
 
   useEffect(() => {
-    fetchPortfolio();
-  }, [fetchPortfolio]);
+    let isMounted = true;
+
+    loadPortfolio()
+      .then((res) => {
+        if (isMounted) setPnlData(res);
+      })
+      .catch(() => {
+        // Ignoré pour conserver les valeurs de secours
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadPortfolio]);
 
   const formattedBalance = pnlData
     ? `${pnlData.currentBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
@@ -42,22 +78,27 @@ export const TradeScreen: React.FC = () => {
 
   return (
     <View style={styles.screenContainer}>
-      {/* 2. Header de trading (aligné avec la vue chart) */}
       <AppHeader
         variant="chart"
         searchValue={searchValue}
         onSearchChange={setSearchValue}
         cashAmount={formattedBalance}
+        selectedRange={selectedRange}
+        onSelectRange={setSelectedRange}
+        chartType={chartType}
+        onToggleChartType={toggleChartType}
         onAlertPress={() => setActiveRightTab('alerts')}
       />
 
-      {/* 3. Zone principale de trading (split 3 colonnes) */}
       <View style={styles.workspace}>
-        {/* Colonne centrale : Graphique avec Toolbar et Info Ticker */}
-        <View style={styles.chartArea}>
-          <ChartToolbar activeTool={activeTool} onSelectTool={setActiveTool} />
+        {/* Colonne centrale avec calcul des bordures pour limiter le drag de ChartToolbar */}
+        <View style={styles.chartArea} onLayout={handleChartAreaLayout}>
+          <ChartToolbar
+            activeTool={activeTool}
+            onSelectTool={setActiveTool}
+            bounds={chartAreaBounds}
+          />
 
-          {/* Bandeau d'informations ticker incrusté en haut du graphique */}
           <View style={styles.tickerOverlay}>
             <Text style={styles.tickerSymbol}>BTC/USD</Text>
             <View style={styles.badgePill}>
@@ -69,44 +110,59 @@ export const TradeScreen: React.FC = () => {
             <Text style={styles.tickerPercent}>+2.5%</Text>
           </View>
 
-          {/* Graphique Lightweight Charts */}
-          <TradingChart symbol={symbol} themeMode="light" />
-        </View>
-
-        {/* Colonne droite : Formulaire d'ordre et Historique */}
-        <View style={styles.orderPanelColumn}>
-          <OrderFormPanel
-            assetCode={symbol}
-            currentPrice={currentPrice}
-            availableBalance={1.0}
-            onOrderSuccess={fetchPortfolio}
+          <TradingChart
+            symbol={symbol}
+            themeMode="light"
+            chartType={chartType}
+            activeTool={activeTool}
+            selectedRange={selectedRange}
           />
         </View>
 
-        {/* Colonne d'icônes à l'extrême droite */}
+        {activeRightTab === 'order' && (
+          <View style={styles.orderPanelColumn}>
+            <OrderFormPanel
+              assetCode={symbol}
+              currentPrice={currentPrice}
+              availableBalance={1.0}
+              onOrderSuccess={fetchPortfolio}
+            />
+          </View>
+        )}
+        {activeRightTab === 'alerts' && (
+          <View style={styles.orderPanelColumn}>
+            <AlertPanel
+              key={alertRefreshKey}
+              assetCode={symbol}
+              onAddPress={() => setIsAlertModalOpen(true)}
+            />
+          </View>
+        )}
+
         <View style={styles.rightIconSidebar}>
           <TouchableOpacity
             style={[styles.sidebarIconBtn, activeRightTab === 'order' && styles.sidebarIconActive]}
-            onPress={() => setActiveRightTab('order')}
+            onPress={() => toggleRightPanel('order')}
           >
             <Image src={walletIcon} width={20} height={20} alt="Ordre" style={styles.iconTint} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.sidebarIconBtn, activeRightTab === 'alerts' && styles.sidebarIconActive]}
-            onPress={() => setActiveRightTab('alerts')}
+            onPress={() => toggleRightPanel('alerts')}
           >
             <Image src={alarmClockIcon} width={20} height={20} alt="Alertes" style={styles.iconTint} />
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.sidebarIconBtn, activeRightTab === 'watchlist' && styles.sidebarIconActive]}
-            onPress={() => setActiveRightTab('watchlist')}
-          >
-            <Image src={listIcon} width={20} height={20} alt="Watchlist" style={styles.iconTint} />
-          </TouchableOpacity>
         </View>
       </View>
+
+      <CreateAlertModal
+        isOpen={isAlertModalOpen}
+        onClose={() => setIsAlertModalOpen(false)}
+        assetCode={symbol}
+        currentPrice={currentPrice}
+        onAlertCreated={() => setAlertRefreshKey((current) => current + 1)}
+      />
     </View>
   );
 };
@@ -114,7 +170,6 @@ export const TradeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   screenContainer: {
     width: '100%',
-    // @ts-ignore
     height: '100vh',
     backgroundColor: '#F3F4F6',
     flexDirection: 'column',
@@ -182,7 +237,7 @@ const styles = StyleSheet.create({
     color: '#009F6B',
   },
   orderPanelColumn: {
-    width: 400, // Aligné sur la largeur de OrderFormPanel (350px au lieu de 290px)
+    width: 400,
     backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
     borderRightColor: '#E5E7EB',

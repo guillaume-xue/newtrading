@@ -6,7 +6,6 @@ import {
   Text,
   StyleSheet,
   ViewStyle,
-  TextStyle,
   useColorScheme,
 } from 'react-native';
 

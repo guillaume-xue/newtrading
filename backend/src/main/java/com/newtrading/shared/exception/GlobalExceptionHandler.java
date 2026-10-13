@@ -41,11 +41,20 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler({AuthenticationException.class, AccessDeniedException.class})
-    public ProblemDetail handleSecurityExceptions(Exception ex) {
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail handleAuthenticationException(AuthenticationException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
         problem.setTitle("Erreur d'Authentification");
         problem.setType(URI.create("urn:problem-type:unauthorized"));
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDeniedException(AccessDeniedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Accès interdit");
+        problem.setTitle("Accès Interdit");
+        problem.setType(URI.create("urn:problem-type:forbidden"));
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }

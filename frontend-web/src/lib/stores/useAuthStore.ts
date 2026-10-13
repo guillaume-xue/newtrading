@@ -1,5 +1,6 @@
 // lib/stores/useAuthStore.ts
 import { create } from 'zustand';
+import { isAxiosError } from 'axios';
 import { tokenStorage } from '@/lib/auth/tokenStorage';
 import { httpClient } from '@/lib/api/httpClient';
 
@@ -29,7 +30,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
   isAuthenticated: false,
@@ -68,10 +69,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         error: null,
       });
-    } catch (err: any) {
+    } catch (error: unknown) {
       const message =
-        err?.response?.data?.message ||
-        (err?.response?.status === 401
+        (isAxiosError(error) && error.response?.data?.message) ||
+        (isAxiosError(error) && error.response?.status === 401
           ? 'Identifiants invalides.'
           : 'Impossible de se connecter au serveur.');
 
@@ -82,7 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token: null,
         user: null,
       });
-      throw err;
+      throw error;
     }
   },
 
@@ -109,9 +110,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
-      // Optionnel en production : vérification auprès du backend (/api/auth/me)
+      // Optionnel en production : vérification auprès du backend (/auth/me)
       try {
-        const response = await httpClient.get('/api/auth/me');
+        const response = await httpClient.get('/auth/me');
         set({
           token: storedToken,
           user: response.data,
