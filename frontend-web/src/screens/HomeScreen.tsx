@@ -1,15 +1,18 @@
 // screens/HomeScreen.tsx
+'use client';
+
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, useColorScheme } from 'react-native';
+import { useRouter } from 'next/navigation';
 
 import { AppHeader, HeaderVariant } from '@/components/layout/AppHeader';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { AuthSelectionScreen, AuthModalType } from '@/screens/AuthSelectionScreen';
-import { TradeScreen } from '@/screens/TradeScreen';
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 
 export const HomeScreen: React.FC = () => {
+  const router = useRouter();
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? darkColors : lightColors;
 
@@ -19,6 +22,14 @@ export const HomeScreen: React.FC = () => {
 
   const [showAuthSelection, setShowAuthSelection] = useState<boolean>(false);
   const [targetModal, setTargetModal] = useState<AuthModalType>(null);
+
+  const handleSelectNav = (id: string) => {
+    if (id === 'trade') {
+      router.push('/trade');
+      return;
+    }
+    setActiveTab(id);
+  };
 
   const handleLoginPress = () => {
     setTargetModal('login');
@@ -41,11 +52,6 @@ export const HomeScreen: React.FC = () => {
     setTargetModal(null);
   };
 
-  // Bascule immédiate vers la vue Trading
-  if (activeTab === 'trade') {
-    return <TradeScreen />;
-  }
-
   return (
     <View
       style={[
@@ -57,7 +63,7 @@ export const HomeScreen: React.FC = () => {
         <AppHeader
           variant={headerVariant}
           activeNavId={activeTab}
-          onSelectNav={setActiveTab}
+          onSelectNav={handleSelectNav}
           searchValue={search}
           onSearchChange={setSearch}
           onLoginPress={handleLoginPress}

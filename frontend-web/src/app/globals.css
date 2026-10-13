@@ -1,3 +1,14 @@
+/* Désactive le drag natif et la sélection sur toutes les images */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  pointer-events: none;
+}
+
 /* Désactive l'outline bleu natif du navigateur sur tous les champs de saisie */
 input:focus,
 input:focus-visible,
@@ -6,10 +17,10 @@ textarea:focus-visible,
 [contenteditable="true"]:focus,
 [contenteditable="true"]:focus-visible {
   outline: none !important;
- outline-style: none !important;
- outline-width: 0 !important;
- outline-color: transparent !important;
- box-shadow: none !important;
+  outline-style: none !important;
+  outline-width: 0 !important;
+  outline-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .auth-right-column {
