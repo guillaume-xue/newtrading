@@ -161,7 +161,6 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
             chartType="area"
             activeTool="crosshair"
             disableZoom
-            showPositions={false}
           />
         </View>
       )}
