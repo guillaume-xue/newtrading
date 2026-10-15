@@ -373,7 +373,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: primitives['border width_border-thin'] ?? 1,
     zIndex: 60,
   },
   leftGroup: {

@@ -198,16 +198,12 @@ export const AppFooter: React.FC<AppFooterProps> = ({
 const styles = StyleSheet.create({
   footer: {
     width: '100%',
-    borderTopWidth: primitives['border width_border-thin'] ?? 1,
-    paddingTop: primitives['spacing & layout_padding & margin_space-8'] ?? 48,
-    paddingBottom: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
   },
   innerContainer: {
     width: '100%',
-    maxWidth: 1320,
     marginHorizontal: 'auto',
-    gap: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+    gap: primitives['spacing & layout_padding & margin_space-8'] ?? 24,
   },
   topSection: {
     flexDirection: 'row',
@@ -236,19 +232,19 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   socialIcon: {
-    fontSize: 16,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     fontWeight: '700',
   },
   brandDescription: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     lineHeight: 18,
   },
   statusLine: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     lineHeight: 18,
   },
   versionText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -261,16 +257,16 @@ const styles = StyleSheet.create({
     minWidth: 600,
   },
   linkColumn: {
-    width: 170,
+    width: 256,
     gap: 6,
   },
   columnTitle: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   categorySubtitle: {
-    fontSize: primitives['typography_font size_font-size-10'] ?? 10,
+    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
     fontWeight: '700',
     letterSpacing: 0.2,
     marginBottom: 4,
@@ -282,7 +278,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   linkText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     lineHeight: 16,
   },
   disclaimerSection: {
@@ -290,7 +286,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   disclaimerText: {
-    fontSize: 11,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     lineHeight: 16,
   },
   bottomSection: {
@@ -303,7 +299,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   copyrightText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
   },
   metaRow: {
     flexDirection: 'row',
@@ -311,10 +307,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   metaText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
   },
   metaSeparator: {
-    fontSize: 12,
+    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     opacity: 0.5,
   },
 });

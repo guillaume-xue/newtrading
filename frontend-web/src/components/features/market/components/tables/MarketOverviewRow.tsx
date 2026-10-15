@@ -30,6 +30,19 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? darkColors : lightColors;
 
+  // 1. Calcul de la tendance (positif ou négatif)
+  const numericChange =
+    typeof changePercent === 'number'
+      ? changePercent
+      : parseFloat(String(changePercent).replace(',', '.').replace('%', '').trim());
+
+  const isPositive = !isNaN(numericChange) ? numericChange >= 0 : true;
+
+  // 2. Couleurs de la ligne et du dégradé
+  const lineColor = isPositive ? '#16A34A' : '#DC2626';
+  const topColor = isPositive ? 'rgba(22, 163, 74, 0.25)' : 'rgba(220, 38, 38, 0.25)';
+  const bottomColor = isPositive ? 'rgba(22, 163, 74, 0.0)' : 'rgba(220, 38, 38, 0.0)';
+
   const formattedPrice =
     typeof price === 'number'
       ? `${price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
@@ -55,7 +68,7 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
         />
       </View>
 
-      {/* 2. Tendance 7j (Mini-Graphique) */}
+      {/* 2. Tendance 7j (Mini-Graphique épuré et coloré) */}
       <View style={styles.colTrendChart}>
         <TradingChart
           symbol={symbol ?? name}
@@ -63,7 +76,11 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
           chartType="area"
           activeTool="crosshair"
           disableZoom
-          showPositions={false}
+          sparkline
+          selectedRange="1M"
+          lineColor={lineColor}
+          topColor={topColor}
+          bottomColor={bottomColor}
         />
       </View>
 

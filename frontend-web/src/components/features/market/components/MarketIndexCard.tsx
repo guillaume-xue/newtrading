@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ViewStyle,
   useColorScheme,
+  TouchableOpacity,
 } from 'react-native';
 
 import { MarketTickerInfo } from '@/components/features/market/components/MarketTickerInfo';
@@ -53,6 +54,7 @@ export interface MarketIndexCardProps {
    */
   style?: ViewStyle;
   cardType?: CardType;
+  onPress?: () => void;
 }
 
 export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
@@ -65,10 +67,23 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
   changePercent,
   style,
   cardType = 'index',
+  onPress,
 }) => {
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? darkColors : lightColors;
   const themeMode = scheme === 'dark' ? 'dark' : 'light';
+
+  const numericChange =
+  typeof changePercent === 'number'
+    ? changePercent
+    : parseFloat(String(changePercent).replace(',', '.').replace('%', '').trim());
+
+  const isPositive = !isNaN(numericChange) ? numericChange >= 0 : true;
+
+  // Couleurs conditionnelles (Vert / Rouge)
+  const chartLineColor = isPositive ? '#16A34A' : '#DC2626';
+  const chartTopColor = isPositive ? 'rgba(22, 163, 74, 0.25)' : 'rgba(220, 38, 38, 0.25)';
+  const chartBottomColor = isPositive ? 'rgba(22, 163, 74, 0.0)' : 'rgba(220, 38, 38, 0.0)';
 
   const formattedPoints =
     typeof points === 'number'
@@ -87,7 +102,9 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
       : equivalentAmount;
 
   return (
-    <View
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.8 : 1}
+      onPress={onPress}
       style={[
         styles.card,
         {
@@ -161,11 +178,15 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
             chartType="area"
             activeTool="crosshair"
             disableZoom
-            showPositions={false}
+            sparkline
+            selectedRange="1D"
+            lineColor={chartLineColor}
+            topColor={chartTopColor}
+            bottomColor={chartBottomColor}
           />
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -211,7 +232,7 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     width: '100%',
-    height: 72,
+    height: 128,
     marginTop: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
     overflow: 'hidden',
     borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
