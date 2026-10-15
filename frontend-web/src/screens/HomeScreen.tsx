@@ -15,10 +15,108 @@ import { CommoditiesAndCurrenciesWidget } from '@/components/features/market/com
 import { MarketOverviewTable } from '@/components/features/market/components/tables/MarketOverviewTable';
 import { MarketOverviewRow } from '@/components/features/market/components/tables/MarketOverviewRow';
 import { MarketHeatmapWidget } from '@/components/features/market/components/MarketHeatmapWidget';
-import { WidgetHeader } from '@/components/ui/WidgetHeader';
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 import { primitives } from '@/theme/generated/primitives';
+
+const INDICES_DATA = [
+  {
+    countryOrCategory: 'ALLEMAGNE',
+    indexName: 'DAX 40',
+    symbol: 'DAX40',
+    points: 18321.12,
+    equivalentAmount: '2 283,10$',
+    changePercent: 0.43,
+  },
+  {
+    countryOrCategory: 'FRANCE',
+    indexName: 'CAC 40',
+    symbol: 'CAC40',
+    points: 7632.40,
+    equivalentAmount: '954,30$',
+    changePercent: -0.12,
+  },
+  {
+    countryOrCategory: 'ÉTATS-UNIS',
+    indexName: 'S&P 500',
+    symbol: 'SPX',
+    points: 5349.10,
+    equivalentAmount: '5 349,10$',
+    changePercent: -0.43,
+  },
+];
+
+// screens/HomeScreen.tsx
+
+const STOCKS_DATA = [
+  {
+    countryOrCategory: 'TECHNOLOGIE',
+    indexName: 'NASDAQ',
+    symbol: 'NDX',
+    points: 18240.20,
+    equivalentAmount: '18 240,20$',
+    changePercent: 0.85,
+  },
+  {
+    countryOrCategory: 'INDUSTRIE',
+    indexName: 'DOW JONES',
+    symbol: 'DJI',
+    points: 39120.00,
+    equivalentAmount: '39 120,00$',
+    changePercent: -0.28,
+  },
+  {
+    countryOrCategory: 'TECHNOLOGIE',
+    indexName: 'APPLE',
+    symbol: 'AAPL',
+    points: 224.23,
+    equivalentAmount: '224,23$',
+    changePercent: 1.15,
+  },
+  {
+    countryOrCategory: 'TECHNOLOGIE',
+    indexName: 'MICROSOFT',
+    symbol: 'MSFT',
+    points: 448.37,
+    equivalentAmount: '448,37$',
+    changePercent: -0.64,
+  },
+];
+
+const CRYPTOS_DATA = [
+  {
+    countryOrCategory: 'CRYPTO',
+    indexName: 'BITCOIN',
+    symbol: 'BTCUSDT',
+    points: 63343.50,
+    equivalentAmount: '63 343,50$',
+    changePercent: 2.14,
+  },
+  {
+    countryOrCategory: 'CRYPTO',
+    indexName: 'ETHEREUM',
+    symbol: 'ETHUSDT',
+    points: 2640.80,
+    equivalentAmount: '2 640,80$',
+    changePercent: -1.35,
+  },
+  {
+    countryOrCategory: 'CRYPTO',
+    indexName: 'SOLANA',
+    symbol: 'SOLUSDT',
+    points: 152.40,
+    equivalentAmount: '152,40$',
+    changePercent: 4.80,
+  },
+  {
+    countryOrCategory: 'CRYPTO',
+    indexName: 'BINANCE COIN',
+    symbol: 'BNBUSDT',
+    points: 585.10,
+    equivalentAmount: '585,10$',
+    changePercent: -0.62,
+  },
+];
 
 export const HomeScreen: React.FC = () => {
   const router = useRouter();
@@ -28,6 +126,15 @@ export const HomeScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('markets');
   const [search, setSearch] = useState<string>('');
   const [headerVariant, setHeaderVariant] = useState<HeaderVariant>('guest');
+
+  const [selectedIndexSymbol, setSelectedIndexSymbol] = useState<string>('DAX40');
+  const currentSelected = INDICES_DATA.find((item) => item.symbol === selectedIndexSymbol);
+
+  const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>('NDX');
+  const currentSelectedStock = STOCKS_DATA.find((item) => item.symbol === selectedStockSymbol);
+
+  const [selectedCryptoSymbol, setSelectedCryptoSymbol] = useState<string>('BTCUSDT');
+  const currentSelectedCrypto = CRYPTOS_DATA.find((item) => item.symbol === selectedCryptoSymbol);
 
   const [showAuthSelection, setShowAuthSelection] = useState<boolean>(false);
   const [targetModal, setTargetModal] = useState<AuthModalType>(null);
@@ -113,76 +220,36 @@ export const HomeScreen: React.FC = () => {
 
               {/* Section 1 : Indices */}
               <View style={styles.section}>
-                <WidgetHeader title="Indices >" />
-                <ScrollView  horizontal={true} showsHorizontalScrollIndicator={false} >
+                <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                  Indices {'>'}
+                </Text>
+
+                <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                   <View style={styles.indicesGrid}>
-                    <MarketIndexCard
-                      countryOrCategory="ALLEMAGNE"
-                      indexName="DAX 40"
-                      symbol="DAX40"
-                      points={18321.12}
-                      equivalentAmount="2 283,10$"
-                      changePercent={0.43}
-                      cardType="index"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="FRANCE"
-                      indexName="CAC 40"
-                      symbol="CAC40"
-                      points={7632.40}
-                      equivalentAmount="954,30$"
-                      changePercent={-0.12}
-                      cardType="index"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="ÉTATS-UNIS"
-                      indexName="S&P 500"
-                      symbol="SPX"
-                      points={5349.10}
-                      equivalentAmount="5 349,10$"
-                      changePercent={-0.43}
-                      cardType="index"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="ÉTATS-UNIS"
-                      indexName="S&P 500"
-                      symbol="SPX"
-                      points={5349.10}
-                      equivalentAmount="5 349,10$"
-                      changePercent={-0.43}
-                      cardType="index"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="ÉTATS-UNIS"
-                      indexName="S&P 500"
-                      symbol="SPX"
-                      points={5349.10}
-                      equivalentAmount="5 349,10$"
-                      changePercent={-0.43}
-                      cardType="index"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="ÉTATS-UNIS"
-                      indexName="S&P 500"
-                      symbol="SPX"
-                      points={5349.10}
-                      equivalentAmount="5 349,10$"
-                      changePercent={-0.43}
-                      cardType="index"
-                      style={styles.cardFlex}
-                    />
+                    {INDICES_DATA.map((item, idx) => (
+                      <MarketIndexCard
+                        key={`${item.symbol}-${idx}`}
+                        countryOrCategory={item.countryOrCategory}
+                        indexName={item.indexName}
+                        symbol={item.symbol}
+                        points={item.points}
+                        equivalentAmount={item.equivalentAmount}
+                        changePercent={item.changePercent}
+                        cardType="index"
+                        style={styles.cardFlex}
+                        onPress={() => setSelectedIndexSymbol(item.symbol)}
+                      />
+                    ))}
                   </View>
                 </ScrollView>
 
                 {/* Graphique global & Heatmap */}
                 <View style={styles.chartAndHeatmapRow}>
                   <View style={styles.chartContainerCard}>
-                    <InteractiveMarketChart symbol="DAX40" />
+                    <InteractiveMarketChart
+                      symbol={selectedIndexSymbol}
+                      changePercent={currentSelected?.changePercent}
+                    />
                   </View>
 
                   <View style={styles.heatmapColumn}>
@@ -197,114 +264,54 @@ export const HomeScreen: React.FC = () => {
 
               {/* Section 2 : Actions */}
               <View style={styles.section}>
-                <WidgetHeader title="Action >" />
+                <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                  Actions {'>'}
+                </Text>
                 <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                   <View style={styles.indicesGrid}>
-                    <MarketIndexCard
-                      countryOrCategory="TECHNOLOGIE"
-                      indexName="NASDAQ"
-                      symbol="NDX"
-                      points={18240.20}
-                      equivalentAmount="18 240,20$"
-                      changePercent={0.85}
-                      cardType="stock"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="INDUSTRIE"
-                      indexName="DOW JONES"
-                      symbol="DJI"
-                      points={39120.00}
-                      equivalentAmount="39 120,00$"
-                      changePercent={-0.28}
-                      cardType="stock"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="INDUSTRIE"
-                      indexName="DOW JONES"
-                      symbol="DJI"
-                      points={39120.00}
-                      equivalentAmount="39 120,00$"
-                      changePercent={-0.28}
-                      cardType="stock"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="INDUSTRIE"
-                      indexName="DOW JONES"
-                      symbol="DJI"
-                      points={39120.00}
-                      equivalentAmount="39 120,00$"
-                      changePercent={-0.28}
-                      cardType="stock"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="INDUSTRIE"
-                      indexName="DOW JONES"
-                      symbol="DJI"
-                      points={39120.00}
-                      equivalentAmount="39 120,00$"
-                      changePercent={-0.28}
-                      cardType="stock"
-                      style={styles.cardFlex}
-                    />
-                    <MarketIndexCard
-                      countryOrCategory="INDUSTRIE"
-                      indexName="DOW JONES"
-                      symbol="DJI"
-                      points={39120.00}
-                      equivalentAmount="39 120,00$"
-                      changePercent={-0.28}
-                      cardType="stock"
-                      style={styles.cardFlex}
-                    />
+                    {STOCKS_DATA.map((item, idx) => (
+                      <MarketIndexCard
+                        key={`${item.symbol}-${idx}`}
+                        countryOrCategory={item.countryOrCategory}
+                        indexName={item.indexName}
+                        symbol={item.symbol}
+                        points={item.points}
+                        equivalentAmount={item.equivalentAmount}
+                        changePercent={item.changePercent}
+                        cardType="stock"
+                        style={styles.cardFlex}
+                        onPress={() => setSelectedStockSymbol(item.symbol)}
+                      />
+                    ))}
                   </View>
                 </ScrollView>
                 <View style={styles.chartContainerCard}>
-                  <InteractiveMarketChart symbol="NDX" />
+                  <InteractiveMarketChart
+                    symbol={selectedStockSymbol}
+                    changePercent={currentSelectedStock?.changePercent}
+                  />
                 </View>
               </View>
 
               {/* Section 3 : Cryptomonnaies */}
               <View style={styles.section}>
-                <WidgetHeader title="Cryptomonnaies >" />
+                <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                  Cryptomonnaies {'>'}
+                </Text>
                 <View style={styles.cryptoRow}>
                   <View style={styles.cryptoTableContainer}>
                     <MarketOverviewTable>
-                      <MarketOverviewRow
-                        countryOrCategory="ALLEMAGNE"
-                        name="DAX 40"
-                        symbol="DAX40"
-                        price="63 343,50 $"
-                        changePercent={-0.43}
-                        volume24h="28,4 Mds $"
-                      />
-                      <MarketOverviewRow
-                        countryOrCategory="ALLEMAGNE"
-                        name="DAX 40"
-                        symbol="DAX40"
-                        price="63 343,50 $"
-                        changePercent={-0.43}
-                        volume24h="28,4 Mds $"
-                      />
-                      <MarketOverviewRow
-                        countryOrCategory="ALLEMAGNE"
-                        name="DAX 40"
-                        symbol="DAX40"
-                        price="63 343,50 $"
-                        changePercent={-0.43}
-                        volume24h="28,4 Mds $"
-                      />
-                      <MarketOverviewRow
-                        countryOrCategory="ALLEMAGNE"
-                        name="DAX 40"
-                        symbol="DAX40"
-                        price="63 343,50 $"
-                        changePercent={-0.43}
-                        volume24h="28,4 Mds $"
-                      />
+                      {CRYPTOS_DATA.map((crypto) => (
+                        <MarketOverviewRow
+                          key={crypto.symbol}
+                          countryOrCategory={crypto.countryOrCategory}
+                          name={crypto.indexName}
+                          symbol={crypto.symbol}
+                          price={crypto.equivalentAmount}
+                          changePercent={crypto.changePercent}
+                          volume24h="28,4 Mds $"
+                        />
+                      ))}
                     </MarketOverviewTable>
                   </View>
 
@@ -351,8 +358,13 @@ const styles = StyleSheet.create({
     backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
   },
   mainTitle: {
-    fontSize: primitives['typography_font size_font-size-24'] ?? 24,
+    fontSize: primitives['typography_font size_font-size-64'] ?? 64,
     fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  sectionTitle: {
+    fontSize: primitives['typography_font size_font-size-48'] ?? 48,
+    fontWeight: '600',
     letterSpacing: -0.5,
   },
   subTitle: {
@@ -370,7 +382,7 @@ const styles = StyleSheet.create({
   },
   cardFlex: {
     flex: 1,
-    minWidth: 400,
+    minWidth: 445,
   },
   chartAndHeatmapRow: {
     flexDirection: 'row',
@@ -401,7 +413,7 @@ const styles = StyleSheet.create({
   cryptoTableContainer: {
     flex: 1,
     flexBasis: 0,
-    minWidth: 0,
+    minWidth: 680,
   },
 
 });

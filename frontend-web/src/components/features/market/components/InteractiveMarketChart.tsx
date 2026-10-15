@@ -17,13 +17,14 @@ import { primitives } from '@/theme/generated/primitives';
 
 interface InteractiveMarketChartProps {
   symbol: string;
+  changePercent?: number | string; // <-- Ajout de la prop
   defaultRange?: TimeRange;
   onFullscreenPress?: () => void;
 }
 
 const RANGES: { label: string; value: TimeRange }[] = [
   { label: '1D', value: '1D' },
-  { label: '3D', value: '3M' }, // ou intervalle souhaité
+  { label: '3D', value: '3M' },
   { label: '1M', value: '1M' },
   { label: '1Y', value: '1Y' },
   { label: '5Y', value: '5Y' },
@@ -32,6 +33,7 @@ const RANGES: { label: string; value: TimeRange }[] = [
 
 export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
   symbol,
+  changePercent,
   defaultRange = '1D',
   onFullscreenPress,
 }) => {
@@ -39,8 +41,33 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
   const theme = scheme === 'dark' ? darkColors : lightColors;
 
   const [selectedRange, setSelectedRange] = useState<TimeRange>(defaultRange);
-  // 'left' = Chandelier / Barres, 'right' = Courbe continue (Area)
   const [chartMode, setChartMode] = useState<'left' | 'right'>('right');
+
+  // Détection positif / négatif
+  const numericChange =
+    typeof changePercent === 'number'
+      ? changePercent
+      : changePercent != null
+      ? parseFloat(String(changePercent).replace(',', '.').replace('%', '').trim())
+      : null;
+
+  const isPositive = numericChange !== null ? numericChange >= 0 : true;
+
+  // Couleurs dynamiques (Vert / Rouge, ou défaut si non renseigné)
+  const lineColor =
+    changePercent != null
+      ? isPositive ? '#16A34A' : '#DC2626'
+      : '#2563EB';
+
+  const topColor =
+    changePercent != null
+      ? isPositive ? 'rgba(22, 163, 74, 0.25)' : 'rgba(220, 38, 38, 0.25)'
+      : 'rgba(37, 99, 235, 0.2)';
+
+  const bottomColor =
+    changePercent != null
+      ? isPositive ? 'rgba(22, 163, 74, 0.0)' : 'rgba(220, 38, 38, 0.0)'
+      : 'rgba(37, 99, 235, 0.0)';
 
   return (
     <View style={styles.container}>
@@ -51,12 +78,14 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
           chartType={chartMode === 'left' ? 'candlestick' : 'area'}
           selectedRange={selectedRange}
           themeMode={scheme === 'dark' ? 'dark' : 'light'}
+          lineColor={lineColor}
+          topColor={topColor}
+          bottomColor={bottomColor}
         />
       </View>
 
-      {/* 2. Barre d'outils inférieure : Boutons de période + Switch + Plein écran */}
+      {/* 2. Barre d'outils inférieure */}
       <View style={styles.bottomBar}>
-        {/* Filtres de plages temporelles (Gauche) */}
         <View style={styles.rangeButtonsGroup}>
           {RANGES.map((item) => {
             const isSelected = selectedRange === item.value;
@@ -68,23 +97,21 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
                 variant={isSelected ? 'secondary' : 'ghost'}
                 shape="rounded"
                 onPress={() => setSelectedRange(item.value)}
-                style={[
-                  styles.rangeBtn,
-                  isSelected && {
-                    backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6',
-                  },
-                ]}
+                style={
+                  isSelected
+                    ? {
+                        ...styles.rangeBtn,
+                        backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6',
+                      }
+                    : styles.rangeBtn
+                }
               />
             );
           })}
         </View>
 
-        {/* Contrôles d'affichage (Droite) */}
         <View style={styles.displayControlsGroup}>
-          <Switch
-            value={chartMode}
-            onChange={setChartMode}
-          />
+          <Switch value={chartMode} onChange={setChartMode} />
 
           <Pressable
             onPress={onFullscreenPress}
@@ -116,6 +143,7 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

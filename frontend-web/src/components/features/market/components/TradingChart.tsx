@@ -27,6 +27,10 @@ interface TradingChartProps {
   activeTool?: ChartTool;
   disableZoom?: boolean;
   selectedRange?: TimeRange;
+  sparkline?: boolean;
+  lineColor?: string; // <-- Ajout
+  topColor?: string;  // <-- Ajout
+  bottomColor?: string; // <-- Ajout
   onDrawingsChange?: (hasDrawings: boolean) => void;
 }
 
@@ -37,6 +41,10 @@ export const TradingChart: React.FC<TradingChartProps> = ({
   activeTool = 'crosshair',
   disableZoom = false,
   selectedRange = '1D',
+  sparkline = false,
+  lineColor = '#2563EB',
+  topColor = 'rgba(37, 99, 235, 0.2)',
+  bottomColor = 'rgba(37, 99, 235, 0.0)',
   onDrawingsChange,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -84,27 +92,39 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         textColor: themeMode === 'dark' ? '#8B949E' : '#64748B',
         fontSize: 12,
       },
+      // Masquer la grille si mode sparkline
       grid: {
-        vertLines: { visible: true, color: themeMode === 'dark' ? '#1F2937' : '#F1F5F9' },
-        horzLines: { visible: true, color: themeMode === 'dark' ? '#1F2937' : '#F1F5F9' },
+        vertLines: { visible: !sparkline, color: themeMode === 'dark' ? '#1F2937' : '#F1F5F9' },
+        horzLines: { visible: !sparkline, color: themeMode === 'dark' ? '#1F2937' : '#F1F5F9' },
       },
+      // Masquer l'axe du temps si mode sparkline
       timeScale: {
+        visible: !sparkline,
         borderColor: themeMode === 'dark' ? '#30363D' : '#E2E8F0',
         timeVisible: true,
       },
+      // Masquer l'échelle de prix à droite si mode sparkline
       rightPriceScale: {
+        visible: !sparkline,
         borderColor: themeMode === 'dark' ? '#30363D' : '#E2E8F0',
       },
-      handleScroll: !isDrawingActive && !inlineEditor && !disableZoom,
-      handleScale: !isDrawingActive && !inlineEditor && !disableZoom,
+      // Désactiver le réticule en mode sparkline
+      crosshair: {
+        vertLine: { visible: !sparkline },
+        horzLine: { visible: !sparkline },
+      },
+      handleScroll: !isDrawingActive && !inlineEditor && !disableZoom && !sparkline,
+      handleScale: !isDrawingActive && !inlineEditor && !disableZoom && !sparkline,
     });
 
     const series = isArea
       ? chart.addSeries(AreaSeries, {
-          lineColor: '#2563EB',
-          topColor: 'rgba(37, 99, 235, 0.2)',
-          bottomColor: 'rgba(37, 99, 235, 0.0)',
+          lineColor: lineColor,
+          topColor: topColor,
+          bottomColor: bottomColor,
           lineWidth: 2,
+          priceLineVisible: !sparkline, // Masque la ligne repère du dernier prix
+          lastValueVisible: !sparkline, // Masque le badge de prix sur l'axe
         })
       : chart.addSeries(CandlestickSeries, {
           upColor: '#16A34A',
@@ -113,6 +133,8 @@ export const TradingChart: React.FC<TradingChartProps> = ({
           borderDownColor: '#DC2626',
           wickUpColor: '#16A34A',
           wickDownColor: '#DC2626',
+          priceLineVisible: !sparkline,
+          lastValueVisible: !sparkline,
         });
 
     chartRef.current = chart;

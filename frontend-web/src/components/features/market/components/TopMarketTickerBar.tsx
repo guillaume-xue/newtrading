@@ -231,7 +231,6 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: primitives['border width_border-thin'] ?? 1,
     overflow: 'hidden',
   },
   statusSection: {
