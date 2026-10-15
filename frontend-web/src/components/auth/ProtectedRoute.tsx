@@ -15,11 +15,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   fallbackRoute = '/login',
 }) => {
   const router = useRouter();
-  const { isAuthenticated, isLoading, initialize } = useAuthStore();
-
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
+  const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
