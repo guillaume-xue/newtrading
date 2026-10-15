@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, useColorScheme } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable, useColorScheme } from 'react-native';
 import { useRouter } from 'next/navigation';
 
 import { AppHeader, HeaderVariant } from '@/components/layout/AppHeader';
@@ -45,8 +45,6 @@ const INDICES_DATA = [
     changePercent: -0.43,
   },
 ];
-
-// screens/HomeScreen.tsx
 
 const STOCKS_DATA = [
   {
@@ -144,6 +142,10 @@ export const HomeScreen: React.FC = () => {
       router.push('/trade');
       return;
     }
+    if (id === 'screener') {
+      router.push('/screener');
+      return;
+    }
     setActiveTab(id);
   };
 
@@ -191,6 +193,7 @@ export const HomeScreen: React.FC = () => {
           onSearchChange={setSearch}
           onLoginPress={handleLoginPress}
           onRegisterPress={handleRegisterPress}
+          onProfilePress={() => router.push('/user')}
         />
       )}
 
@@ -220,9 +223,11 @@ export const HomeScreen: React.FC = () => {
 
               {/* Section 1 : Indices */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
-                  Indices {'>'}
-                </Text>
+                <Pressable onPress={() => router.push('/screener')} style={styles.sectionTitlePressable}>
+                  <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                    Indices {'>'}
+                  </Text>
+                </Pressable>
 
                 <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                   <View style={styles.indicesGrid}>
@@ -264,9 +269,12 @@ export const HomeScreen: React.FC = () => {
 
               {/* Section 2 : Actions */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
-                  Actions {'>'}
-                </Text>
+                <Pressable onPress={() => router.push('/screener')} style={styles.sectionTitlePressable}>
+                  <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                    Actions {'>'}
+                  </Text>
+                </Pressable>
+
                 <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                   <View style={styles.indicesGrid}>
                     {STOCKS_DATA.map((item, idx) => (
@@ -295,9 +303,12 @@ export const HomeScreen: React.FC = () => {
 
               {/* Section 3 : Cryptomonnaies */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
-                  Cryptomonnaies {'>'}
-                </Text>
+                <Pressable onPress={() => router.push('/screener')} style={styles.sectionTitlePressable}>
+                  <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                    Cryptomonnaies {'>'}
+                  </Text>
+                </Pressable>
+
                 <View style={styles.cryptoRow}>
                   <View style={styles.cryptoTableContainer}>
                     <MarketOverviewTable>
@@ -362,6 +373,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
   },
+  sectionTitlePressable: {
+    alignSelf: 'flex-start',
+    cursor: 'pointer',
+  },
   sectionTitle: {
     fontSize: primitives['typography_font size_font-size-48'] ?? 48,
     fontWeight: '600',
@@ -415,7 +430,6 @@ const styles = StyleSheet.create({
     flexBasis: 0,
     minWidth: 680,
   },
-
 });
 
 export default HomeScreen;
