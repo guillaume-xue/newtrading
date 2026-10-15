@@ -8,6 +8,32 @@ const PASSWORD_REGEX = /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!._-]).{
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const authHandlers = [
+  // GET /auth/me (restaure la session après un rechargement)
+  http.get('*/auth/me', ({ request }) => {
+    const authorization = request.headers.get('Authorization');
+
+    if (!authorization?.startsWith('Bearer mocked-jwt-token-')) {
+      return HttpResponse.json(
+        {
+          timestamp: new Date().toISOString(),
+          status: 401,
+          error: 'Unauthorized',
+          message: 'Token invalide',
+        },
+        { status: 401 }
+      );
+    }
+
+    const token = authorization.slice('Bearer mocked-jwt-token-'.length);
+    const email = token.split('-newtrading-signature')[0];
+
+    return HttpResponse.json({
+      id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      email: atob(email),
+      authProvider: 'LOCAL',
+    });
+  }),
+
   // POST /auth/login (compatible /api/v1/auth/login et /api/auth/login)
   http.post('*/auth/login', async ({ request }) => {
     const body = (await request.json()) as { email?: string; password?: string };

@@ -15,6 +15,7 @@ import { CommoditiesAndCurrenciesWidget } from '@/components/features/market/com
 import { MarketOverviewTable } from '@/components/features/market/components/tables/MarketOverviewTable';
 import { MarketOverviewRow } from '@/components/features/market/components/tables/MarketOverviewRow';
 import { MarketHeatmapWidget } from '@/components/features/market/components/MarketHeatmapWidget';
+import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
 import { primitives } from '@/theme/generated/primitives';
@@ -123,7 +124,9 @@ export const HomeScreen: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<string>('markets');
   const [search, setSearch] = useState<string>('');
-  const [headerVariant, setHeaderVariant] = useState<HeaderVariant>('guest');
+
+  const { isAuthenticated } = useAuthStore();
+  const headerVariant: HeaderVariant = isAuthenticated ? 'authenticated' : 'guest';
 
   const [selectedIndexSymbol, setSelectedIndexSymbol] = useState<string>('DAX40');
   const currentSelected = INDICES_DATA.find((item) => item.symbol === selectedIndexSymbol);
@@ -146,6 +149,10 @@ export const HomeScreen: React.FC = () => {
       router.push('/screener');
       return;
     }
+    if (id === 'user' || id === 'profile' || id === 'portfolio') {
+      router.push('/user');
+      return;
+    }
     setActiveTab(id);
   };
 
@@ -166,7 +173,6 @@ export const HomeScreen: React.FC = () => {
   const handleAuthSuccess = () => {
     setShowAuthSelection(false);
     setTargetModal(null);
-    setHeaderVariant('authenticated');
   };
 
   const handleBackToHome = () => {
@@ -191,8 +197,8 @@ export const HomeScreen: React.FC = () => {
           onSelectNav={handleSelectNav}
           searchValue={search}
           onSearchChange={setSearch}
-          onLoginPress={handleLoginPress}
-          onRegisterPress={handleRegisterPress}
+          onLoginPress={() => router.push('/login')}
+          onRegisterPress={() => router.push('/signup')}
           onProfilePress={() => router.push('/user')}
         />
       )}
