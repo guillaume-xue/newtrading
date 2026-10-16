@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { AppHeader, HeaderVariant } from '@/components/layout/AppHeader';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { AuthSelectionScreen, AuthModalType } from '@/screens/AuthSelectionScreen';
-import { TopMarketTickerBar } from '@/components/features/market/components/TopMarketTickerBar';
+import { TopMarketTickerBar } from '@/components/layout/TopMarketTickerBar';
 import { MarketIndexCard } from '@/components/features/market/components/MarketIndexCard';
 import { InteractiveMarketChart } from '@/components/features/market/components/InteractiveMarketChart';
 import { CommoditiesAndCurrenciesWidget } from '@/components/features/market/components/CommoditiesAndCurrenciesWidget';
@@ -140,22 +140,6 @@ export const HomeScreen: React.FC = () => {
   const [showAuthSelection, setShowAuthSelection] = useState<boolean>(false);
   const [targetModal, setTargetModal] = useState<AuthModalType>(null);
 
-  const handleSelectNav = (id: string) => {
-    if (id === 'trade') {
-      router.push('/trade');
-      return;
-    }
-    if (id === 'screener') {
-      router.push('/screener');
-      return;
-    }
-    if (id === 'user' || id === 'profile' || id === 'portfolio') {
-      router.push('/user');
-      return;
-    }
-    setActiveTab(id);
-  };
-
   const handleAssetPress = (symbol: string) => {
     router.push(`/trade?symbol=${symbol}`);
   };
@@ -194,7 +178,6 @@ export const HomeScreen: React.FC = () => {
         <AppHeader
           variant={headerVariant}
           activeNavId={activeTab}
-          onSelectNav={handleSelectNav}
           searchValue={search}
           onSearchChange={setSearch}
           onLoginPress={() => router.push('/login')}

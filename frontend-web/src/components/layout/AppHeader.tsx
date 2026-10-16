@@ -1,7 +1,6 @@
-// components/AppHeader.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,9 +8,10 @@ import {
   StyleSheet,
   ViewStyle,
   useColorScheme,
+  ScrollView,
 } from 'react-native';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 import LogoSvg from '@/assets/icons/Logo.svg';
 import BellIcon from '@/assets/icons/bell.svg';
@@ -24,6 +24,10 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { Button } from '@/components/ui/Button';
 import { MarketCashInfo } from '@/components/features/market/components/MarketCashInfo';
 import { CreateAlertModal } from '@/components/features/market/components/CreateAlertModal';
+import { LoginModal } from '@/components/auth/LoginModal';
+import { SignUpModal } from '@/components/auth/SignUpModal';
+import { useAuthStore } from '@/lib/stores/useAuthStore';
+import { alertApi, AlertResponse } from '@/lib/api/alertApi';
 
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
@@ -35,14 +39,15 @@ export type HeaderVariant = 'guest' | 'authenticated' | 'chart';
 export interface NavItem {
   id: string;
   label: string;
+  href: string;
 }
 
 const DEFAULT_NAV_ITEMS: NavItem[] = [
-  { id: 'markets', label: 'Marchés' },
-  { id: 'trade', label: 'Trade' },
-  { id: 'options', label: 'Options' },
-  { id: 'news', label: 'Actualités' },
-  { id: 'screener', label: 'Screener' },
+  { id: 'markets', label: 'Marchés', href: '/' },
+  { id: 'trade', label: 'Trade', href: '/trade' },
+  { id: 'options', label: 'Options', href: '/options' },
+  { id: 'news', label: 'Actualités', href: '/news' },
+  { id: 'screener', label: 'Screener', href: '/screener' },
 ];
 
 export interface AppHeaderProps {
@@ -68,8 +73,8 @@ export interface AppHeaderProps {
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
-  variant = 'guest',
-  activeNavId = 'markets',
+  variant,
+  activeNavId,
   onSelectNav,
   searchValue,
   onSearchChange,
@@ -89,18 +94,101 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   style,
 }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? darkColors : lightColors;
+
+  const { isAuthenticated, isLoading } = useAuthStore();
+
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
   const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
+  const [internalSearch, setInternalSearch] = useState(searchValue ?? '');
+
+  // État des notifications reçues
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AlertResponse[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+
+  const fetchTriggeredAlerts = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      setNotifLoading(true);
+      const alerts = await alertApi.getAlerts();
+      const triggered = alerts.filter((a) => a.isTriggered);
+      setNotifications(triggered);
+    } catch {
+      // Ignorer si échec temporaire
+    } finally {
+      setNotifLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void fetchTriggeredAlerts();
+      const interval = setInterval(() => {
+        void fetchTriggeredAlerts();
+      }, 30000);
+      return () => clearInterval(interval);
+    } else {
+      setNotifications([]);
+    }
+  }, [isAuthenticated, fetchTriggeredAlerts]);
+
+  const computedVariant = useMemo<HeaderVariant>(() => {
+    if (variant) return variant;
+    return isAuthenticated ? 'authenticated' : 'guest';
+  }, [variant, isAuthenticated]);
+
+  const currentNavId = useMemo(() => {
+    if (activeNavId) return activeNavId;
+    if (pathname === '/options') return 'options';
+    if (pathname === '/news') return 'news';
+    if (pathname === '/screener') return 'screener';
+    if (pathname?.startsWith('/trade')) return 'trade';
+    if (pathname?.startsWith('/user')) return 'user';
+    if (pathname === '/') return 'markets';
+    return null;
+  }, [activeNavId, pathname]);
 
   const handleLogoPress = () => {
     router.push('/');
   };
 
+  const handleNavPress = (item: NavItem) => {
+    if (onSelectNav) {
+      onSelectNav(item.id);
+    } else {
+      router.push(item.href);
+    }
+  };
+
+  const handleSearchSubmit = () => {
+    const term = (searchValue ?? internalSearch).trim();
+    if (!term) return;
+    router.push(`/trade?symbol=${encodeURIComponent(term.toUpperCase())}`);
+  };
+
   const handleOpenAlert = () => {
+    if (!isAuthenticated) {
+      setIsLoginModalOpen(true);
+      return;
+    }
     setIsAlertModalOpen(true);
     onAlertPress?.();
+  };
+
+  const handleToggleNotifications = () => {
+    if (onNotificationsPress) {
+      onNotificationsPress();
+      return;
+    }
+    setIsNotifDropdownOpen((prev) => !prev);
+    if (!isNotifDropdownOpen) {
+      void fetchTriggeredAlerts();
+    }
   };
 
   const handleSelectTimeRange = (range: TimeRange) => {
@@ -108,12 +196,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     setIsRangeMenuOpen(false);
   };
 
-  const handleNotificationsPress = () => {
-    onNotificationsPress?.();
-  };
-
-  const handleSettingsPress = () => {
-    onSettingsPress?.();
+  const handleProfileClick = () => {
+    if (onProfilePress) {
+      onProfilePress();
+    } else if (isAuthenticated) {
+      router.push('/user');
+    } else {
+      setIsLoginModalOpen(true);
+    }
   };
 
   return (
@@ -132,7 +222,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <View style={styles.leftGroup}>
           <Pressable onPress={handleLogoPress} style={styles.logoRow}>
             <Image src={LogoSvg} width={32} height={32} alt="NewTrading" />
-            {variant !== 'chart' && (
+            {computedVariant !== 'chart' && (
               <Text
                 style={[
                   styles.brandTitle,
@@ -144,14 +234,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             )}
           </Pressable>
 
-          {variant !== 'chart' && (
+          {computedVariant !== 'chart' && (
             <View style={styles.navRow}>
               {DEFAULT_NAV_ITEMS.map((item) => {
-                const isActive = item.id === activeNavId;
+                const isActive = item.id === currentNavId;
                 return (
                   <Pressable
                     key={item.id}
-                    onPress={() => onSelectNav?.(item.id)}
+                    onPress={() => handleNavPress(item)}
                     style={[
                       styles.navItem,
                       isActive && [
@@ -175,16 +265,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </View>
           )}
 
-          {/* Outils vue Graphique avec sélecteur d'intervalle */}
-          {variant === 'chart' && (
+          {/* Outils vue Graphique */}
+          {computedVariant === 'chart' && (
             <View style={styles.chartToolsGroup}>
               <View style={styles.chartSearchWrapper}>
                 <SearchBar
                   size="sm"
-                  placeholder=""
+                  placeholder="Ticker..."
                   showClearIcon={false}
-                  value={searchValue}
-                  onChangeText={onSearchChange}
+                  value={searchValue ?? internalSearch}
+                  onChangeText={(val) => {
+                    setInternalSearch(val);
+                    onSearchChange?.(val);
+                  }}
+                  onSubmitEditing={handleSearchSubmit}
+                  returnKeyType="search"
                 />
               </View>
 
@@ -195,7 +290,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 ]}
               />
 
-              {/* Bouton d'intervalle temporel avec dropdown */}
               <View style={styles.rangeSelectorWrapper}>
                 <Pressable
                   onPress={() => setIsRangeMenuOpen((prev) => !prev)}
@@ -259,7 +353,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 ]}
               />
 
-              {/* Bascule Candlestick / Line (Area) */}
               <Pressable
                 onPress={onToggleChartType}
                 style={[
@@ -304,27 +397,34 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </View>
 
         {/* 2. SECTION CENTRALE */}
-        {variant !== 'chart' && (
+        {computedVariant !== 'chart' && (
           <View style={styles.centerSearchWrapper}>
             <SearchBar
               size="md"
-              placeholder=""
-              value={searchValue}
-              onChangeText={onSearchChange}
+              placeholder="Rechercher..."
+              value={searchValue ?? internalSearch}
+              onChangeText={(val) => {
+                setInternalSearch(val);
+                onSearchChange?.(val);
+              }}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="search"
             />
           </View>
         )}
 
         {/* 3. SECTION DROITE */}
         <View style={styles.rightGroup}>
-          {variant === 'guest' ? (
+          {isLoading ? (
+            <View style={styles.authLoadingPlaceholder} />
+          ) : computedVariant === 'guest' ? (
             <View style={styles.guestActionRow}>
               <Button
                 label="Connexion"
                 variant="outline"
                 shape="rounded"
                 size="sm"
-                onPress={onLoginPress}
+                onPress={onLoginPress ?? (() => setIsLoginModalOpen(true))}
                 style={styles.headerActionButton}
               />
               <Button
@@ -332,7 +432,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 variant="primary"
                 shape="rounded"
                 size="sm"
-                onPress={onRegisterPress}
+                onPress={onRegisterPress ?? (() => setIsSignUpModalOpen(true))}
                 style={styles.headerActionButton}
               />
             </View>
@@ -340,13 +440,101 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <View style={styles.authActionRow}>
               <MarketCashInfo label="LIQUIDITÉS" amount={cashAmount} />
               <View style={styles.iconActions}>
-                <Pressable onPress={handleNotificationsPress} style={styles.actionIconBtn}>
-                  <Image src={BellIcon} width={20} height={20} alt="Alertes" />
-                </Pressable>
-                <Pressable onPress={handleSettingsPress} style={styles.actionIconBtn}>
+                {/* Cloche avec badge et dropdown de notifications */}
+                <View style={styles.notifWrapper}>
+                  <Pressable
+                    onPress={handleToggleNotifications}
+                    style={styles.actionIconBtn}
+                  >
+                    <Image src={BellIcon} width={20} height={20} alt="Alertes" />
+                    {notifications.length > 0 && (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>
+                          {notifications.length > 9 ? '9+' : notifications.length}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+
+                  {/* Dropdown des notifications reçues */}
+                  {isNotifDropdownOpen && (
+                    <View
+                      style={[
+                        styles.notifDropdown,
+                        {
+                          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
+                          borderColor: theme['colors_divider_text'] ?? '#E5E7EB',
+                        },
+                      ]}
+                    >
+                      <View style={styles.notifHeader}>
+                        <Text
+                          style={[
+                            styles.notifHeaderTitle,
+                            { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                          ]}
+                        >
+                          Notifications ({notifications.length})
+                        </Text>
+                        <Pressable onPress={() => handleOpenAlert()}>
+                          <Text style={styles.notifActionLink}>+ Créer</Text>
+                        </Pressable>
+                      </View>
+
+                      <ScrollView style={styles.notifList} showsVerticalScrollIndicator={false}>
+                        {notifLoading ? (
+                          <Text style={styles.notifEmptyText}>Chargement...</Text>
+                        ) : notifications.length === 0 ? (
+                          <Text style={styles.notifEmptyText}>Aucune alerte reçue</Text>
+                        ) : (
+                          notifications.map((notif) => (
+                            <Pressable
+                              key={notif.id}
+                              style={styles.notifItem}
+                              onPress={() => {
+                                setIsNotifDropdownOpen(false);
+                                router.push(`/trade?symbol=${encodeURIComponent(notif.assetCode)}`);
+                              }}
+                            >
+                              <View style={styles.notifItemHeader}>
+                                <Text style={styles.notifAsset}>{notif.assetCode}</Text>
+                                <Text style={styles.notifTagTriggered}>Déclenchée</Text>
+                              </View>
+                              <Text style={styles.notifDetails}>
+                                Seuil {notif.triggerCondition === 'ABOVE' ? '≥' : '≤'}{' '}
+                                {notif.targetPrice.toLocaleString('fr-FR', {
+                                  minimumFractionDigits: 2,
+                                })} $
+                              </Text>
+                              <Text style={styles.notifDate}>
+                                {new Date(notif.createdAt).toLocaleDateString('fr-FR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </Text>
+                            </Pressable>
+                          ))
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <Pressable onPress={onSettingsPress} style={styles.actionIconBtn}>
                   <Image src={GearIcon} width={20} height={20} alt="Paramètres" />
                 </Pressable>
-                <Pressable onPress={onProfilePress} style={styles.actionIconBtn}>
+                <Pressable
+                  onPress={handleProfileClick}
+                  style={[
+                    styles.actionIconBtn,
+                    pathname?.startsWith('/user') && [
+                      styles.activeProfileBtn,
+                      { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                    ],
+                  ]}
+                >
                   <Image src={ProfileIcon} width={20} height={20} alt="Profil" />
                 </Pressable>
               </View>
@@ -360,6 +548,27 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         onClose={() => setIsAlertModalOpen(false)}
         assetCode={assetCode}
         currentPrice={currentPrice}
+        onAlertCreated={fetchTriggeredAlerts}
+      />
+
+      <LoginModal
+        visible={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onSuccess={() => setIsLoginModalOpen(false)}
+        onNavigateToSignUp={() => {
+          setIsLoginModalOpen(false);
+          setIsSignUpModalOpen(true);
+        }}
+      />
+
+      <SignUpModal
+        visible={isSignUpModalOpen}
+        onClose={() => setIsSignUpModalOpen(false)}
+        onSuccess={() => setIsSignUpModalOpen(false)}
+        onNavigateToLogin={() => {
+          setIsSignUpModalOpen(false);
+          setIsLoginModalOpen(true);
+        }}
       />
     </>
   );
@@ -480,14 +689,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   centerSearchWrapper: {
-    width: 170,
+    width: 220,
     marginLeft: 12,
     marginRight: 'auto',
+    overflow: 'hidden',
   },
   rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 0,
+  },
+  authLoadingPlaceholder: {
+    height: 32,
+    minWidth: 160,
   },
   guestActionRow: {
     flexDirection: 'row',
@@ -504,11 +718,110 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  notifWrapper: {
+    position: 'relative',
+    zIndex: 90,
+  },
   actionIconBtn: {
     width: 28,
     height: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  activeProfileBtn: {
+    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  notifDropdown: {
+    position: 'absolute',
+    top: 36,
+    right: 0,
+    width: 300,
+    maxHeight: 380,
+    borderRadius: 8,
+    borderWidth: 1,
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+    zIndex: 100,
+    overflow: 'hidden',
+  },
+  notifHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  notifHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  notifActionLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  notifList: {
+    maxHeight: 300,
+  },
+  notifEmptyText: {
+    padding: 16,
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  notifItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  notifItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  notifAsset: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0B0F19',
+  },
+  notifTagTriggered: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  notifDetails: {
+    fontSize: 12,
+    color: '#4B5563',
+    marginBottom: 2,
+  },
+  notifDate: {
+    fontSize: 10,
+    color: '#9CA3AF',
   },
 });
 

@@ -1,8 +1,10 @@
+// screens/TradeScreen.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
 import Image from 'next/image';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 import walletIcon from '@/assets/icons/money-bill-transfer 1.svg';
 import alarmClockIcon from '@/assets/icons/alarm-clock.svg';
@@ -16,9 +18,13 @@ import { OrderFormPanel } from '@/components/portfolio/components/OrderFormPanel
 import { tradeApi, PnLData } from '@/lib/api/tradeApi';
 import { TimeRange } from '@/types/timeRange';
 
-export const TradeScreen: React.FC = () => {
-  const symbol = 'BTC/USD';
-  const [searchValue, setSearchValue] = useState<string>('');
+const TradeScreenContent: React.FC = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlSymbol = searchParams.get('symbol');
+  const symbol = urlSymbol ? urlSymbol.toUpperCase() : 'BTC/USD';
+
+  const [searchValue, setSearchValue] = useState<string>(symbol);
   const [activeTool, setActiveTool] = useState<ChartTool>('crosshair');
   const [selectedRange, setSelectedRange] = useState<TimeRange>('1D');
   const [chartType, setChartType] = useState<'candlestick' | 'area'>('candlestick');
@@ -29,6 +35,10 @@ export const TradeScreen: React.FC = () => {
   const [alertRefreshKey, setAlertRefreshKey] = useState(0);
 
   const currentPrice = 63432.5;
+
+  useEffect(() => {
+    setSearchValue(symbol);
+  }, [symbol]);
 
   const toggleChartType = () => {
     setChartType((prev) => (prev === 'candlestick' ? 'area' : 'candlestick'));
@@ -72,6 +82,13 @@ export const TradeScreen: React.FC = () => {
     };
   }, [loadPortfolio]);
 
+  const handleSearchChange = (newSymbol: string) => {
+    setSearchValue(newSymbol);
+    if (newSymbol.trim()) {
+      router.push(`/trade?symbol=${encodeURIComponent(newSymbol.trim().toUpperCase())}`);
+    }
+  };
+
   const formattedBalance = pnlData
     ? `${pnlData.currentBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
     : '100 000,00 $';
@@ -81,8 +98,10 @@ export const TradeScreen: React.FC = () => {
       <AppHeader
         variant="chart"
         searchValue={searchValue}
-        onSearchChange={setSearchValue}
+        onSearchChange={handleSearchChange}
         cashAmount={formattedBalance}
+        assetCode={symbol}
+        currentPrice={currentPrice}
         selectedRange={selectedRange}
         onSelectRange={setSelectedRange}
         chartType={chartType}
@@ -91,7 +110,6 @@ export const TradeScreen: React.FC = () => {
       />
 
       <View style={styles.workspace}>
-        {/* Colonne centrale avec calcul des bordures pour limiter le drag de ChartToolbar */}
         <View style={styles.chartArea} onLayout={handleChartAreaLayout}>
           <ChartToolbar
             activeTool={activeTool}
@@ -100,7 +118,7 @@ export const TradeScreen: React.FC = () => {
           />
 
           <View style={styles.tickerOverlay}>
-            <Text style={styles.tickerSymbol}>BTC/USD</Text>
+            <Text style={styles.tickerSymbol}>{symbol}</Text>
             <View style={styles.badgePill}>
               <Text style={styles.badgePillText}>PERP</Text>
             </View>
@@ -167,6 +185,14 @@ export const TradeScreen: React.FC = () => {
   );
 };
 
+export const TradeScreen: React.FC = () => {
+  return (
+    <Suspense fallback={<View style={styles.screenContainer} />}>
+      <TradeScreenContent />
+    </Suspense>
+  );
+};
+
 const styles = StyleSheet.create({
   screenContainer: {
     width: '100%',
@@ -174,17 +200,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     flexDirection: 'column',
     overflow: 'hidden',
-  },
-  topBreadcrumbBar: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 2,
-    backgroundColor: '#FFFFFF',
-  },
-  breadcrumbText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '600',
   },
   workspace: {
     flex: 1,

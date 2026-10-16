@@ -1,3 +1,4 @@
+// components/portfolio/components/OrderFormPanel.tsx
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -7,6 +8,8 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-nat
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { WidgetHeader } from '@/components/ui/WidgetHeader';
+import { LoginModal } from '@/components/auth/LoginModal';
+import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { lightColors } from '@/theme/generated/light';
 import { SimulatedTransactionResponse, tradeApi } from '@/lib/api/tradeApi';
 
@@ -18,14 +21,14 @@ interface OrderFormPanelProps {
   initialHistory?: SimulatedTransactionResponse[];
 }
 
-
-
 export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
   assetCode,
   availableBalance,
   onOrderSuccess,
   initialHistory,
 }) => {
+  const { isAuthenticated } = useAuthStore();
+
   const [direction, setDirection] = useState<'BUY' | 'SELL'>('BUY');
   const [price, setPrice] = useState<string>('63,321.50');
   const [size, setSize] = useState<string>('1.00');
@@ -35,7 +38,15 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
   const [historyLoading, setHistoryLoading] = useState<boolean>(!initialHistory);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
+  // État de la modal d'authentification forcée
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
+
   const loadHistory = useCallback(async () => {
+    if (!isAuthenticated) {
+      setHistoryLoading(false);
+      return;
+    }
+
     setHistoryLoading(true);
     setHistoryError(null);
 
@@ -50,7 +61,7 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (initialHistory) return;
@@ -64,6 +75,14 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
 
   const handleExecuteOrder = async (targetDirection: 'BUY' | 'SELL') => {
     setDirection(targetDirection);
+
+    // Contrôle d'authentification préalable
+    if (!isAuthenticated) {
+      setErrorMessage('Veuillez vous connecter pour exécuter un ordre simulé.');
+      setIsAuthModalVisible(true);
+      return;
+    }
+
     const parsedQuantity = parseFloat(size.replace(',', '.')) || 0;
 
     if (parsedQuantity <= 0) {
@@ -94,136 +113,144 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
   };
 
   return (
-    <View style={styles.container}>
-      {/* 1. Titre de section ORDRE & Menu Options */}
-      <WidgetHeader title="ORDRE" />
+    <>
+      <View style={styles.container}>
+        <WidgetHeader title="ORDRE" />
 
-      {/* 2. Boutons segmentés collés Buy & Sell */}
-      <View style={styles.buttonSegment}>
-        <Button
-          label="Buy"
-          subtitle="123,23"
-          variant={direction === 'BUY' ? 'buy' : 'secondary'}
-          shape="rounded"
-          size="md"
-          roundedSide="left"
-          onPress={() => handleExecuteOrder('BUY')}
-          style={{
-            ...styles.segmentButton,
-            ...(direction !== 'BUY' ? styles.inactiveSegment : {}),
-          }}
-        />
-        <Button
-          label="Sell"
-          subtitle="123,23"
-          variant={direction === 'SELL' ? 'sell' : 'secondary'}
-          shape="rounded"
-          size="md"
-          roundedSide="right"
-          onPress={() => handleExecuteOrder('SELL')}
-          style={{
-            ...styles.segmentButton,
-            ...(direction !== 'SELL' ? styles.inactiveSegment : {}),
-          }}
-        />
-      </View>
-
-      {/* 3. Champ Price (USD) avec label interne et suffixe Limite */}
-      <View style={styles.fieldWrapper}>
-        <InputField
-          label="Price (USD)"
-          value={price}
-          onChangeText={setPrice}
-          keyboardType="decimal-pad"
-          suffix={<Text style={styles.suffixText}>Limite</Text>}
-          style={styles.fieldInput}
-        />
-      </View>
-
-      {/* 4. Champ Size (BTC) avec label interne et Available */}
-      <View style={styles.fieldWrapper}>
-        <InputField
-          label="Size (BTC)"
-          value={size}
-          onChangeText={setSize}
-          keyboardType="decimal-pad"
-          suffix={<Text style={styles.suffixText}>Available: {availableBalance.toFixed(2)}</Text>}
-          style={styles.fieldInput}
-        />
-      </View>
-
-      {/* Indicateur de chargement ou d'erreur éventuel */}
-      {loading && (
-        <View style={styles.feedbackRow}>
-          <ActivityIndicator size="small" color={lightColors['colors_button_buy']} />
-          <Text style={styles.feedbackText}>Exécution en cours…</Text>
+        <View style={styles.buttonSegment}>
+          <Button
+            label="Buy"
+            subtitle="123,23"
+            variant={direction === 'BUY' ? 'buy' : 'secondary'}
+            shape="rounded"
+            size="md"
+            roundedSide="left"
+            onPress={() => handleExecuteOrder('BUY')}
+            style={{
+              ...styles.segmentButton,
+              ...(direction !== 'BUY' ? styles.inactiveSegment : {}),
+            }}
+          />
+          <Button
+            label="Sell"
+            subtitle="123,23"
+            variant={direction === 'SELL' ? 'sell' : 'secondary'}
+            shape="rounded"
+            size="md"
+            roundedSide="right"
+            onPress={() => handleExecuteOrder('SELL')}
+            style={{
+              ...styles.segmentButton,
+              ...(direction !== 'SELL' ? styles.inactiveSegment : {}),
+            }}
+          />
         </View>
-      )}
 
-      {errorMessage && (
-        <Text style={styles.errorText}>{errorMessage}</Text>
-      )}
+        <View style={styles.fieldWrapper}>
+          <InputField
+            label="Price (USD)"
+            value={price}
+            onChangeText={setPrice}
+            keyboardType="decimal-pad"
+            suffix={<Text style={styles.suffixText}>Limite</Text>}
+            style={styles.fieldInput}
+          />
+        </View>
 
-      {/* 5. Titre de section HISTORIQUE & Menu Options */}
-      <WidgetHeader title="HISTORIQUE" />
-      <ScrollView
-        style={styles.historyList}
-        contentContainerStyle={styles.historyContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {historyLoading ? (
-          <View style={styles.historyFeedback}>
-            <ActivityIndicator size="small" color={lightColors['colors_text_secondary']} />
-            <Text style={styles.historyFeedbackText}>Chargement…</Text>
+        <View style={styles.fieldWrapper}>
+          <InputField
+            label="Size (BTC)"
+            value={size}
+            onChangeText={setSize}
+            keyboardType="decimal-pad"
+            suffix={<Text style={styles.suffixText}>Available: {availableBalance.toFixed(2)}</Text>}
+            style={styles.fieldInput}
+          />
+        </View>
+
+        {loading && (
+          <View style={styles.feedbackRow}>
+            <ActivityIndicator size="small" color={lightColors['colors_button_buy']} />
+            <Text style={styles.feedbackText}>Exécution en cours…</Text>
           </View>
-        ) : historyError ? (
-          <Text style={styles.historyErrorText}>{historyError}</Text>
-        ) : history.length === 0 ? (
-          <Text style={styles.emptyHistoryText}>Aucune transaction</Text>
-        ) : (
-          history.map((transaction) => (
-            <View key={transaction.id} style={styles.historyRow}>
-              <View style={styles.historyMain}>
-                <View style={styles.historyTitleRow}>
-                  <Text style={styles.historyAsset}>{transaction.assetCode}</Text>
-                  <Text
-                    style={[
-                      styles.historyDirection,
-                      transaction.orderDirection === 'BUY'
-                        ? styles.buyText
-                        : styles.sellText,
-                    ]}
-                  >
-                    {transaction.orderDirection}
+        )}
+
+        {errorMessage && (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        )}
+
+        <WidgetHeader title="HISTORIQUE" />
+        <ScrollView
+          style={styles.historyList}
+          contentContainerStyle={styles.historyContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {historyLoading ? (
+            <View style={styles.historyFeedback}>
+              <ActivityIndicator size="small" color={lightColors['colors_text_secondary']} />
+              <Text style={styles.historyFeedbackText}>Chargement…</Text>
+            </View>
+          ) : historyError ? (
+            <Text style={styles.historyErrorText}>{historyError}</Text>
+          ) : !isAuthenticated ? (
+            <Text style={styles.emptyHistoryText}>Connectez-vous pour voir votre historique</Text>
+          ) : history.length === 0 ? (
+            <Text style={styles.emptyHistoryText}>Aucune transaction</Text>
+          ) : (
+            history.map((transaction) => (
+              <View key={transaction.id} style={styles.historyRow}>
+                <View style={styles.historyMain}>
+                  <View style={styles.historyTitleRow}>
+                    <Text style={styles.historyAsset}>{transaction.assetCode}</Text>
+                    <Text
+                      style={[
+                        styles.historyDirection,
+                        transaction.orderDirection === 'BUY'
+                          ? styles.buyText
+                          : styles.sellText,
+                      ]}
+                    >
+                      {transaction.orderDirection}
+                    </Text>
+                  </View>
+                  <Text style={styles.historyDate}>
+                    {new Date(transaction.executedAt).toLocaleString('fr-FR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </Text>
                 </View>
-                <Text style={styles.historyDate}>
-                  {new Date(transaction.executedAt).toLocaleString('fr-FR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
+                <View style={styles.historyValues}>
+                  <Text style={styles.historyValue}>
+                    {transaction.quantity.toLocaleString('fr-FR', {
+                      maximumFractionDigits: 4,
+                    })}
+                  </Text>
+                  <Text style={styles.historyPrice}>
+                    {transaction.executionPrice.toLocaleString('fr-FR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} $
+                  </Text>
+                </View>
               </View>
-              <View style={styles.historyValues}>
-                <Text style={styles.historyValue}>
-                  {transaction.quantity.toLocaleString('fr-FR', {
-                    maximumFractionDigits: 4,
-                  })}
-                </Text>
-                <Text style={styles.historyPrice}>
-                  {transaction.executionPrice.toLocaleString('fr-FR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })} $
-                </Text>
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
-    </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
+
+      <LoginModal
+        visible={isAuthModalVisible}
+        onClose={() => setIsAuthModalVisible(false)}
+        onSuccess={() => {
+          setIsAuthModalVisible(false);
+          setErrorMessage(null);
+          void loadHistory();
+        }}
+      />
+    </>
   );
 };
 
@@ -235,25 +262,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0B0F19',
-    letterSpacing: -0.2,
-  },
-  iconBtn: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dotsIcon: {
-    filter: 'brightness(0) opacity(0.8)',
   },
   buttonSegment: {
     flexDirection: 'row',

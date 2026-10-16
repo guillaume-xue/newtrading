@@ -2,11 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, useColorScheme } from 'react-native';
-import { useRouter } from 'next/navigation';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AppFooter } from '@/components/layout/AppFooter';
-import { TopMarketTickerBar } from '@/components/features/market/components/TopMarketTickerBar';
+import { TopMarketTickerBar } from '@/components/layout/TopMarketTickerBar';
 import {
   ScreenerTable,
   ScreenerItem,
@@ -20,7 +19,8 @@ import { primitives } from '@/theme/generated/primitives';
 
 type AssetCategory = 'TOUT' | 'ACTIONS' | 'CRYPTO' | 'INDICES';
 
-// Jeux de données par défaut aligné sur le PRD & la maquette Figma
+const CATEGORIES: AssetCategory[] = ['TOUT', 'ACTIONS', 'CRYPTO', 'INDICES'];
+
 const INITIAL_SCREENER_DATA: ScreenerItem[] = [
   { id: '1', name: 'ALLEMAGNE', symbol: 'DAX 40', category: 'INDICES', avgPrice: 743.43, currentPrice: 843.5, quantity: 40.0, unrealizedPnL: 3123.0, pnlPercent: 0.43 },
   { id: '2', name: 'APPLE INC.', symbol: 'AAPL', category: 'ACTIONS', avgPrice: 175.2, currentPrice: 189.4, quantity: 25.0, unrealizedPnL: 355.0, pnlPercent: 8.1 },
@@ -31,16 +31,17 @@ const INITIAL_SCREENER_DATA: ScreenerItem[] = [
 ];
 
 export const ScreenerScreen: React.FC = () => {
-  const router = useRouter();
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? darkColors : lightColors;
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<AssetCategory>('TOUT');
   const [sortField, setSortField] = useState<SortField>('currentPrice');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  const textPrimary = theme['colors_text_primary'] ?? '#0B0F19';
+  const textPrimary = theme['colors_text_primary'] ?? primitives.color_neutral_950;
+  const textSecondary = theme['colors_text_secondary'] ?? primitives.color_neutral_500;
+  const bgCard = theme['colors_bg_secondary'] ?? primitives.color_neutral_0;
+  const borderCard = theme['colors_divider_text'] ?? primitives.color_neutral_200;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -52,94 +53,74 @@ export const ScreenerScreen: React.FC = () => {
   };
 
   const filteredAndSortedItems = useMemo(() => {
-    return INITIAL_SCREENER_DATA.filter((item) => {
-      const matchSearch =
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.symbol.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchCategory =
-        selectedCategory === 'TOUT' || item.category === selectedCategory;
-      return matchSearch && matchCategory;
-    }).sort((a, b) => {
-      let comparison = 0;
-      if (sortField === 'name') {
-        comparison = a.name.localeCompare(b.name);
-      } else {
-        comparison = (a[sortField] as number) - (b[sortField] as number);
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-  }, [searchQuery, selectedCategory, sortField, sortOrder]);
+    return INITIAL_SCREENER_DATA
+      .filter((item) => selectedCategory === 'TOUT' || item.category === selectedCategory)
+      .sort((a, b) => {
+        let comparison = 0;
+        if (sortField === 'name') {
+          comparison = a.name.localeCompare(b.name);
+        } else {
+          comparison = (a[sortField] as number) - (b[sortField] as number);
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+  }, [selectedCategory, sortField, sortOrder]);
 
   return (
     <View
       style={[
         styles.screen,
-        { backgroundColor: theme['colors_bg_primary'] ?? '#F8FAFC' },
+        { backgroundColor: theme['colors_bg_primary'] ?? primitives.color_neutral_50 },
       ]}
     >
       <TopMarketTickerBar />
-      <AppHeader
-        variant="authenticated"
-        activeNavId="screener"
-        onSelectNav={(id) => {
-          if (id === 'markets') router.push('/');
-          if (id === 'trade') router.push('/trade');
-          if (id === 'screener') router.push('/screener');
-        }}
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        onProfilePress={() => router.push('/user')}
-      />
+      <AppHeader />
 
       <View style={styles.content}>
-        <View style={styles.headerBlock}>
+        <View style={[styles.headerBlock, { backgroundColor: bgCard, borderColor: borderCard }]}>
           <Text style={[styles.pageTitle, { color: textPrimary }]}>
-            Tout les actions
+            Toutes les actions
           </Text>
         </View>
 
-        <View style={styles.contentBlock}>
-            {/* Onglets de filtrage rapide par classe d'actif */}
+        <View style={[styles.contentBlock, { backgroundColor: bgCard, borderColor: borderCard }]}>
           <View style={styles.categoryTabs}>
-            {(['TOUT', 'ACTIONS', 'CRYPTO', 'INDICES'] as AssetCategory[]).map(
-              (cat) => {
-                const isActive = selectedCategory === cat;
-                return (
-                  <Pressable
-                    key={cat}
-                    onPress={() => setSelectedCategory(cat)}
+            {CATEGORIES.map((cat) => {
+              const isActive = selectedCategory === cat;
+              return (
+                <Pressable
+                  key={cat}
+                  onPress={() => setSelectedCategory(cat)}
+                  style={[
+                    styles.categoryTab,
+                    isActive && {
+                      backgroundColor: theme['colors_bg_primary'] ?? primitives.color_neutral_100,
+                      borderColor: theme['colors_button_outline-border'] ?? primitives.color_neutral_300,
+                    },
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.categoryTab,
-                      isActive && {
-                        backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                        borderColor: theme['colors_button_outline-border'] ?? '#D1D5DB',
+                      styles.categoryTabText,
+                      {
+                        color: isActive ? textPrimary : textSecondary,
+                        fontWeight: isActive ? '700' : '500',
                       },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.categoryTabText,
-                        {
-                          color: isActive
-                            ? textPrimary
-                            : (theme['colors_text_secondary'] ?? '#9CA3AF'),
-                          fontWeight: isActive ? '700' : '500',
-                        },
-                      ]}
-                    >
-                      {cat}
-                    </Text>
-                  </Pressable>
-                );
-              }
-            )}
+                    {cat}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
-            <ScreenerTable
+
+          <ScreenerTable
             items={filteredAndSortedItems}
             sortField={sortField}
             sortOrder={sortOrder}
             onSort={handleSort}
-            />
+          />
         </View>
       </View>
 
@@ -152,11 +133,12 @@ const styles = StyleSheet.create({
   screen: {
     width: '100%',
     minHeight: '100vh',
+    display: 'flex',
     flexDirection: 'column',
+    justifyContent: 'space-between',
   },
   content: {
     width: '100%',
-    marginHorizontal: 'auto',
     paddingVertical: 4,
     flex: 1,
     gap: 4,
@@ -165,11 +147,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
     padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 12,
-    backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
-    gap: 4,
   },
   pageTitle: {
     fontSize: primitives['typography_font size_font-size-64'] ?? 64,
@@ -179,11 +158,9 @@ const styles = StyleSheet.create({
   },
   contentBlock: {
     flexDirection: 'column',
-    height: '100%',
     flex: 1,
     padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
     borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 12,
-    backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
     gap: 32,
   },
   categoryTabs: {
