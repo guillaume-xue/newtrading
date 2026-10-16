@@ -20,7 +20,7 @@ import { MarketIndexCard } from '@/components/features/market/components/MarketI
 import { MarketCashInfo } from '@/components/features/market/components/MarketCashInfo';
 import { AssetAllocationCard } from '@/components/portfolio/components/AssetAllocationCard';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { TopMarketTickerBar } from '@/components/features/market/components/TopMarketTickerBar';
+import { TopMarketTickerBar } from '@/components/layout/TopMarketTickerBar';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { PortfolioTable } from '@/components/portfolio/components/tables/PortfolioTable';
 import { PortfolioPositionRow } from '@/components/portfolio/components/tables/PortfolioPositionRow';

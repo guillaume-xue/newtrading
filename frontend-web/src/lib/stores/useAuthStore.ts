@@ -26,8 +26,25 @@ interface AuthState {
   // Actions
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
-  initialize: () => Promise<void>;
+  initialize: () => void;
   clearError: () => void;
+}
+
+function parseJwt(token: string): { sub?: string; id?: string; email?: string; exp?: number } | null {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -54,14 +71,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error('Jeton JWT manquant dans la réponse API.');
       }
 
-      // 1. Sauvegarde sécurisée du token (Keychain sur iOS / localStorage ou Secure Cookie sur Web)
+      // Sauvegarde du token
       tokenStorage.set(token);
 
-      // 2. Mise à jour de l'état Zustand
       set({
         token,
         user: {
-          id: userId,
+          id: userId ?? 'user-id',
           email: authenticatedEmail ?? email.trim().toLowerCase(),
           authProvider: 'LOCAL',
         },
@@ -102,7 +118,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  initialize: async () => {
+  initialize: () => {
     try {
       const storedToken = tokenStorage.get();
       if (!storedToken) {
@@ -110,20 +126,26 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      // Optionnel en production : vérification auprès du backend (/auth/me)
-      try {
-        const response = await httpClient.get('/auth/me');
-        set({
-          token: storedToken,
-          user: response.data,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } catch {
-        // Token expiré ou invalide
+      const payload = parseJwt(storedToken);
+
+      // Si le token est expiré (exp en secondes)
+      if (payload?.exp && Date.now() >= payload.exp * 1000) {
         tokenStorage.clear();
         set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+        return;
       }
+
+      // Restauration de la session depuis le token
+      set({
+        token: storedToken,
+        user: {
+          id: payload?.id ?? payload?.sub ?? 'user-id',
+          email: payload?.email ?? payload?.sub ?? 'utilisateur@trading.com',
+          authProvider: 'LOCAL',
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      });
     } catch {
       set({ isAuthenticated: false, isLoading: false });
     }

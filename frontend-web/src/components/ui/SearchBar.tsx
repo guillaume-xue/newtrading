@@ -107,6 +107,7 @@ const styles = StyleSheet.create({
     borderRadius: primitives['spacing & layout_border radius_radius-full'] ?? 9999,
     borderWidth: primitives['border width_border-thin'] ?? 1,
     width: '100%',
+    overflow: 'hidden',
   },
   md: {
     height: 32,
