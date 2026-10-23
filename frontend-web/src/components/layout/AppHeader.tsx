@@ -28,6 +28,7 @@ import { LoginModal } from '@/components/auth/LoginModal';
 import { SignUpModal } from '@/components/auth/SignUpModal';
 import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { alertApi, AlertResponse } from '@/lib/api/alertApi';
+import { StreamStatus } from '@/lib/hooks/useMarketStream';
 
 import { darkColors } from '@/theme/generated/dark';
 import { lightColors } from '@/theme/generated/light';
@@ -69,6 +70,7 @@ export interface AppHeaderProps {
   onSettingsPress?: () => void;
   onProfilePress?: () => void;
   onAlertPress?: () => void;
+  streamStatus?: StreamStatus;
   style?: ViewStyle;
 }
 
@@ -91,6 +93,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onSettingsPress,
   onProfilePress,
   onAlertPress,
+  streamStatus,
   style,
 }) => {
   const router = useRouter();
@@ -206,8 +209,33 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   };
 
+  const networkStatusColor = useMemo(() => {
+    switch (streamStatus) {
+      case 'CONNECTED':
+        return '#22C55E';
+      case 'CONNECTING':
+        return '#F59E0B';
+      case 'DISCONNECTED':
+        return '#EF4444';
+      default:
+        return undefined;
+    }
+  }, [streamStatus]);
+
   return (
     <>
+      {/* Bandeau d'alerte réseau en cas de rupture STOMP/WebSocket */}
+      {streamStatus && streamStatus !== 'CONNECTED' && (
+        <View style={styles.reconnectBanner}>
+          <View style={[styles.networkDot, { backgroundColor: networkStatusColor }]} />
+          <Text style={styles.reconnectText}>
+            {streamStatus === 'CONNECTING'
+              ? 'Reconnexion au flux de marché en cours...'
+              : 'Flux temps réel déconnecté. Tentative de rétablissement...'}
+          </Text>
+        </View>
+      )}
+
       <View
         style={[
           styles.headerContainer,
@@ -231,6 +259,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               >
                 NewTrading
               </Text>
+            )}
+            {/* Pastille de statut réseau */}
+            {streamStatus && (
+              <View
+                style={[
+                  styles.networkStatusIndicator,
+                  { backgroundColor: networkStatusColor },
+                ]}
+              />
             )}
           </Pressable>
 
@@ -575,6 +612,34 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
+  reconnectBanner: {
+    height: 32,
+    backgroundColor: '#FEF3C7',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FDE68A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    zIndex: 70,
+    gap: 8,
+  },
+  reconnectText: {
+    color: '#92400E',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  networkDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  networkStatusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: 4,
+  },
   headerContainer: {
     height: 64,
     width: '100%',

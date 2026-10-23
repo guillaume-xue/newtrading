@@ -33,18 +33,18 @@ export interface PageResponse<T> {
 
 export const tradeApi = {
   placeOrder: async (payload: PlaceOrderPayload): Promise<SimulatedTransactionResponse> => {
-    const { data } = await httpClient.post<SimulatedTransactionResponse>('/api/v1/trades', payload);
+    const { data } = await httpClient.post<SimulatedTransactionResponse>('/trades', payload);
     return data;
   },
 
   getPnL: async (): Promise<PnLData> => {
-    const { data } = await httpClient.get<PnLData>('/api/v1/trades/pnl');
+    const { data } = await httpClient.get<PnLData>('/trades/pnl');
     return data;
   },
 
   getOrderHistory: async (page = 0, size = 20): Promise<PageResponse<SimulatedTransactionResponse>> => {
     const { data } = await httpClient.get<PageResponse<SimulatedTransactionResponse>>(
-      `/api/v1/trades/history?page=${page}&size=${size}`
+      `/trades/history?page=${page}&size=${size}`
     );
     return data;
   },
