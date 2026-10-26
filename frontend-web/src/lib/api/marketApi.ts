@@ -19,11 +19,27 @@ export interface QuoteModel {
 }
 
 export const fetchMarketHistory = async (symbol: string): Promise<CandleModel[]> => {
-  const response = await httpClient.get<CandleModel[]>(`/market/history/${symbol}`);
+  const response = await httpClient.get<CandleModel[]>(`/market/history/${symbol}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+    },
+    params: {
+      _t: Date.now(), // Cache-busting systématique
+    },
+  });
   return response.data;
 };
 
 export const fetchMarketQuote = async (symbol: string): Promise<QuoteModel> => {
-  const response = await httpClient.get<QuoteModel>(`/market/quote/${symbol}`);
+  const response = await httpClient.get<QuoteModel>(`/market/quote/${symbol}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+    },
+    params: {
+      _t: Date.now(),
+    },
+  });
   return response.data;
 };

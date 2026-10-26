@@ -1,5 +1,7 @@
 // components/AppFooter.tsx
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -85,8 +87,16 @@ export const AppFooter: React.FC<AppFooterProps> = ({
   version = 'v1.0.0-beta',
   style,
 }) => {
+  const [mounted, setMounted] = useState(false);
   const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Détermination du thème : utilise lightColors par défaut lors du SSR pour correspondre au serveur
+  const isDark = mounted && scheme === 'dark';
+  const theme = isDark ? darkColors : lightColors;
 
   const borderColor = theme['colors_divider_text'] ?? '#D1D5DB';
   const textPrimary = theme['colors_text_primary'] ?? '#0B0F19';
@@ -127,7 +137,10 @@ export const AppFooter: React.FC<AppFooterProps> = ({
             </Text>
 
             <Text style={[styles.statusLine, { color: textMuted }]}>
-              Statut des serveurs : <Text style={{ color: textPrimary, fontWeight: '600' }}>Tous les systèmes opérationnels</Text>
+              Statut des serveurs :{' '}
+              <Text style={{ color: textPrimary, fontWeight: '600' }}>
+                Tous les systèmes opérationnels
+              </Text>
             </Text>
 
             <Text style={[styles.versionText, { color: textMuted }]}>
@@ -178,15 +191,27 @@ export const AppFooter: React.FC<AppFooterProps> = ({
 
           <View style={styles.metaRow}>
             <Text style={[styles.metaText, { color: textMuted }]}>
-              Langue : <Text style={{ color: textPrimary, fontWeight: '500' }}>Français (FR)</Text>
+              Langue :{' '}
+              <Text style={{ color: textPrimary, fontWeight: '500' }}>
+                Français (FR)
+              </Text>
             </Text>
             <Text style={[styles.metaSeparator, { color: textMuted }]}>|</Text>
             <Text style={[styles.metaText, { color: textMuted }]}>
-              Fuseau : <Text style={{ color: textPrimary, fontWeight: '500' }}>UTC+2 (Paris)</Text>
+              Fuseau :{' '}
+              <Text style={{ color: textPrimary, fontWeight: '500' }}>
+                UTC+2 (Paris)
+              </Text>
             </Text>
             <Text style={[styles.metaSeparator, { color: textMuted }]}>|</Text>
             <Text style={[styles.metaText, { color: textMuted }]}>
-              Thème : <Text style={{ color: textPrimary, fontWeight: '500' }}>{scheme === 'dark' ? 'Sombre' : 'Clair'}</Text>
+              Thème :{' '}
+              <Text
+                suppressHydrationWarning
+                style={{ color: textPrimary, fontWeight: '500' }}
+              >
+                {mounted ? (scheme === 'dark' ? 'Sombre' : 'Clair') : 'Clair'}
+              </Text>
             </Text>
           </View>
         </View>

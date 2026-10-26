@@ -8,6 +8,7 @@ import com.newtrading.shared.exception.BusinessException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -41,6 +42,18 @@ public class FinnhubStockApiClient implements StockApiClient {
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(factory)
+                .defaultStatusHandler(HttpStatusCode::is4xxClientError, (request, response) -> {
+                    if (response.getStatusCode().value() == 429) {
+                        throw new BusinessException("Limite de requêtes Finnhub atteinte (Rate Limit)", HttpStatus.TOO_MANY_REQUESTS);
+                    }
+                    if (response.getStatusCode().value() == 401 || response.getStatusCode().value() == 403) {
+                        throw new BusinessException("Clé API Finnhub invalide ou non autorisée", HttpStatus.UNAUTHORIZED);
+                    }
+                    throw new BusinessException("Erreur client Finnhub : " + response.getStatusCode(), HttpStatus.valueOf(response.getStatusCode().value()));
+                })
+                .defaultStatusHandler(HttpStatusCode::is5xxServerError, (request, response) -> {
+                    throw new BusinessException("Serveur Finnhub indisponible", HttpStatus.BAD_GATEWAY);
+                })
                 .build();
         this.apiKey = apiKey;
         this.objectMapper = objectMapper;
@@ -83,7 +96,7 @@ public class FinnhubStockApiClient implements StockApiClient {
     private List<CandleDto> parseCandles(String json, String symbol) {
         try {
             JsonNode root = objectMapper.readTree(json);
-            if (root.has("s") && "no_data".equals(root.get("s").asText())) {
+            if (root.has("s") && !"ok".equalsIgnoreCase(root.get("s").asText())) {
                 throw new BusinessException("Aucune donnée disponible pour : " + symbol, HttpStatus.NOT_FOUND);
             }
 
@@ -120,6 +133,10 @@ public class FinnhubStockApiClient implements StockApiClient {
     private QuoteDto parseQuote(String json, String symbol) {
         try {
             JsonNode root = objectMapper.readTree(json);
+            if (!root.has("c") || !root.has("t")) {
+                throw new BusinessException("Réponse Finnhub quote invalide", HttpStatus.BAD_GATEWAY);
+            }
+
             BigDecimal currentPrice = new BigDecimal(root.get("c").asText());
             if (currentPrice.compareTo(BigDecimal.ZERO) == 0 && root.get("t").asLong() == 0) {
                 throw new BusinessException("Symbole boursier introuvable : " + symbol, HttpStatus.NOT_FOUND);

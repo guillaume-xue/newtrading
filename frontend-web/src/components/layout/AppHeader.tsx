@@ -1,3 +1,4 @@
+// src/components/layout/AppHeader.tsx
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -249,7 +250,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {/* 1. SECTION GAUCHE */}
         <View style={styles.leftGroup}>
           <Pressable onPress={handleLogoPress} style={styles.logoRow}>
-            <Image src={LogoSvg} width={32} height={32} alt="NewTrading" />
+            <Image
+              src={LogoSvg}
+              width={32}
+              height={32}
+              alt="NewTrading"
+              priority
+            />
             {computedVariant !== 'chart' && (
               <Text
                 style={[
@@ -477,7 +484,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <View style={styles.authActionRow}>
               <MarketCashInfo label="LIQUIDITÉS" amount={cashAmount} />
               <View style={styles.iconActions}>
-                {/* Cloche avec badge et dropdown de notifications */}
                 <View style={styles.notifWrapper}>
                   <Pressable
                     onPress={handleToggleNotifications}
@@ -493,7 +499,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     )}
                   </Pressable>
 
-                  {/* Dropdown des notifications reçues */}
                   {isNotifDropdownOpen && (
                     <View
                       style={[

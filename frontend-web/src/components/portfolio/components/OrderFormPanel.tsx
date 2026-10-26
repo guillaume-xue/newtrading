@@ -23,6 +23,7 @@ interface OrderFormPanelProps {
 
 export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
   assetCode,
+  currentPrice,
   availableBalance,
   onOrderSuccess,
   initialHistory,
@@ -30,7 +31,7 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
   const { isAuthenticated } = useAuthStore();
 
   const [direction, setDirection] = useState<'BUY' | 'SELL'>('BUY');
-  const [price, setPrice] = useState<string>('63,321.50');
+  const [price, setPrice] = useState<string>('0.00');
   const [size, setSize] = useState<string>('1.00');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -40,6 +41,18 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
 
   // État de la modal d'authentification forcée
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
+
+  // Synchronisation du champ de prix avec la cotation en direct du graphique
+  useEffect(() => {
+    if (currentPrice > 0) {
+      setPrice(
+        currentPrice.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      );
+    }
+  }, [currentPrice]);
 
   const loadHistory = useCallback(async () => {
     if (!isAuthenticated) {
@@ -112,6 +125,10 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
     }
   };
 
+  const formattedLivePrice = currentPrice > 0
+    ? currentPrice.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '---';
+
   return (
     <>
       <View style={styles.container}>
@@ -120,7 +137,7 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
         <View style={styles.buttonSegment}>
           <Button
             label="Buy"
-            subtitle="123,23"
+            subtitle={formattedLivePrice}
             variant={direction === 'BUY' ? 'buy' : 'secondary'}
             shape="rounded"
             size="md"
@@ -133,8 +150,8 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
           />
           <Button
             label="Sell"
-            subtitle="123,23"
-            variant={direction === 'SELL' ? 'sell' : 'secondary'}
+            subtitle={formattedLivePrice}
+            variant={direction === 'sell' ? 'sell' : 'secondary'}
             shape="rounded"
             size="md"
             roundedSide="right"
@@ -159,11 +176,15 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
 
         <View style={styles.fieldWrapper}>
           <InputField
-            label="Size (BTC)"
+            label={`Size (${assetCode})`}
             value={size}
             onChangeText={setSize}
             keyboardType="decimal-pad"
-            suffix={<Text style={styles.suffixText}>Available: {availableBalance.toFixed(2)}</Text>}
+            suffix={
+              <Text style={styles.suffixText}>
+                Available: {availableBalance.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}
+              </Text>
+            }
             style={styles.fieldInput}
           />
         </View>

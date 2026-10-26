@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import {
   createChart,
@@ -13,12 +13,13 @@ import {
   AreaSeries,
 } from 'lightweight-charts';
 
-import { fetchMarketHistory, CandleModel } from '@/lib/api/marketApi';
+import { fetchMarketHistory, CandleModel, QuoteModel } from '@/lib/api/marketApi';
 import { ChartTool } from '@/components/features/market/components/ChartToolbar';
 import { generateLocalMockCandles } from '@/utils/chartPath';
 import { useChartDrawings } from '@/hooks/useChartDrawings';
 import { ChartDrawingOverlay } from './ChartDrawingOverlay';
 import { TimeRange, getFromTimestampForRange } from '@/types/timeRange';
+import { useMarketStream } from '@/lib/hooks/useMarketStream';
 
 interface TradingChartProps {
   symbol: string;
@@ -28,10 +29,11 @@ interface TradingChartProps {
   disableZoom?: boolean;
   selectedRange?: TimeRange;
   sparkline?: boolean;
-  lineColor?: string; // <-- Ajout
-  topColor?: string;  // <-- Ajout
-  bottomColor?: string; // <-- Ajout
+  lineColor?: string;
+  topColor?: string;
+  bottomColor?: string;
   onDrawingsChange?: (hasDrawings: boolean) => void;
+  onPriceChange?: (price: number, basePrice?: number) => void;
 }
 
 export const TradingChart: React.FC<TradingChartProps> = ({
@@ -46,7 +48,11 @@ export const TradingChart: React.FC<TradingChartProps> = ({
   topColor = 'rgba(37, 99, 235, 0.2)',
   bottomColor = 'rgba(37, 99, 235, 0.0)',
   onDrawingsChange,
+  onPriceChange,
 }) => {
+  // Normalisation du ticker pour le routage REST et le topic STOMP
+  const cleanSymbol = symbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | ISeriesApi<'Area'> | null>(null);
@@ -92,23 +98,19 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         textColor: themeMode === 'dark' ? '#8B949E' : '#64748B',
         fontSize: 12,
       },
-      // Masquer la grille si mode sparkline
       grid: {
         vertLines: { visible: !sparkline, color: themeMode === 'dark' ? '#1F2937' : '#F1F5F9' },
         horzLines: { visible: !sparkline, color: themeMode === 'dark' ? '#1F2937' : '#F1F5F9' },
       },
-      // Masquer l'axe du temps si mode sparkline
       timeScale: {
         visible: !sparkline,
         borderColor: themeMode === 'dark' ? '#30363D' : '#E2E8F0',
         timeVisible: true,
       },
-      // Masquer l'échelle de prix à droite si mode sparkline
       rightPriceScale: {
         visible: !sparkline,
         borderColor: themeMode === 'dark' ? '#30363D' : '#E2E8F0',
       },
-      // Désactiver le réticule en mode sparkline
       crosshair: {
         vertLine: { visible: !sparkline },
         horzLine: { visible: !sparkline },
@@ -123,8 +125,8 @@ export const TradingChart: React.FC<TradingChartProps> = ({
           topColor: topColor,
           bottomColor: bottomColor,
           lineWidth: 2,
-          priceLineVisible: !sparkline, // Masque la ligne repère du dernier prix
-          lastValueVisible: !sparkline, // Masque le badge de prix sur l'axe
+          priceLineVisible: !sparkline,
+          lastValueVisible: !sparkline,
         })
       : chart.addSeries(CandlestickSeries, {
           upColor: '#16A34A',
@@ -163,7 +165,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     };
   }, [chartType, themeMode, disableZoom]);
 
-  // Synchronisation des verrous de navigation lors des dessins
+  // Synchronisation des verrous de navigation lors des tracés
   useEffect(() => {
     if (!chartRef.current) return;
     chartRef.current.applyOptions({
@@ -172,7 +174,9 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     });
   }, [isDrawingActive, inlineEditor, disableZoom]);
 
-  // 2. Récupération des cours
+    // 2. Récupération des cours historiques
+  const lastFetchedSymbolRef = useRef<string | null>(null);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -181,8 +185,11 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       let candles: CandlestickData[] = [];
 
       try {
-        const data: CandleModel[] = await fetchMarketHistory(symbol);
+        console.log(`[API CALL] Récupération de l'historique pour : ${cleanSymbol}`);
+        const data: CandleModel[] = await fetchMarketHistory(cleanSymbol);
+
         if (Array.isArray(data) && data.length > 0) {
+          console.log(`[API RESPONSE] Reçu pour ${cleanSymbol} :`, data.length, 'bougies réelles');
           candles = data
             .map((item) => ({
               time: Math.floor(new Date(item.timestamp).getTime() / 1000) as UTCTimestamp,
@@ -192,14 +199,15 @@ export const TradingChart: React.FC<TradingChartProps> = ({
               close: Number(item.close),
             }))
             .sort((a, b) => (a.time as number) - (b.time as number));
-        } else {
-          candles = generateLocalMockCandles();
         }
-      } catch {
-        candles = generateLocalMockCandles();
+      } catch (error) {
+        console.error(`[API ERROR] Impossible de charger l'historique réel pour ${cleanSymbol} :`, error);
       }
 
-      if (!isMounted || !seriesRef.current) return;
+      if (!isMounted || !seriesRef.current || candles.length === 0) {
+        setLoading(false);
+        return;
+      }
 
       candlesDataRef.current = candles;
 
@@ -210,20 +218,13 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         (seriesRef.current as ISeriesApi<'Candlestick'>).setData(candles);
       }
 
+      const latestCandle = candles[candles.length - 1];
+      const firstCandle = candles[0];
+      onPriceChange?.(latestCandle.close, firstCandle.open);
+
       requestAnimationFrame(() => {
         if (!chartRef.current || candles.length === 0) return;
-        const latestTimestamp = candles[candles.length - 1].time as number;
-
-        if (selectedRange === 'ALL') {
-          chartRef.current.timeScale().fitContent();
-        } else {
-          const fromTimestamp = getFromTimestampForRange(selectedRange, latestTimestamp);
-          chartRef.current.timeScale().setVisibleRange({
-            from: fromTimestamp as UTCTimestamp,
-            to: latestTimestamp as UTCTimestamp,
-          });
-        }
-
+        chartRef.current.timeScale().fitContent();
         setViewportTick((t) => t + 1);
       });
 
@@ -235,9 +236,55 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [symbol, chartType]);
+  }, [cleanSymbol, chartType]); // <-- Retrait de onPriceChange et selectedRange
 
-  // 3. Recadrage automatique lors du changement d'intervalle (1D, 5D, 1M, etc.)
+  // 3. Réception et injection des ticks WebSocket en direct
+  const handleLiveQuote = useCallback(
+    (quote: QuoteModel) => {
+      if (!seriesRef.current || candlesDataRef.current.length === 0) return;
+
+      const price = Number(quote.price);
+      if (isNaN(price)) return;
+
+      // Remonte le prix tick-by-tick vers TradeScreen
+      onPriceChange?.(price);
+
+      const currentCandles = candlesDataRef.current;
+      const lastIndex = currentCandles.length - 1;
+      const lastCandle = currentCandles[lastIndex];
+
+      if (chartType === 'area') {
+        const quoteTime = Math.floor(new Date(quote.timestamp).getTime() / 1000) as UTCTimestamp;
+        const areaUpdate = {
+          time: quoteTime >= (lastCandle.time as number) ? quoteTime : lastCandle.time,
+          value: price,
+        };
+        (seriesRef.current as ISeriesApi<'Area'>).update(areaUpdate);
+        return;
+      }
+
+      // Mise à jour de la bougie active
+      const updatedCandle: CandlestickData = {
+        time: lastCandle.time,
+        open: lastCandle.open,
+        high: Math.max(lastCandle.high, price),
+        low: Math.min(lastCandle.low, price),
+        close: price,
+      };
+
+      currentCandles[lastIndex] = updatedCandle;
+      (seriesRef.current as ISeriesApi<'Candlestick'>).update(updatedCandle);
+    },
+    [chartType, onPriceChange]
+  );
+
+  useMarketStream({
+    symbol: cleanSymbol,
+    onPriceUpdate: handleLiveQuote,
+    enabled: !loading && !sparkline,
+  });
+
+  // 4. Recadrage automatique lors du changement d'intervalle
   useEffect(() => {
     if (!chartRef.current || candlesDataRef.current.length === 0) return;
 

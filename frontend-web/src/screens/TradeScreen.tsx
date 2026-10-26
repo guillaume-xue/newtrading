@@ -16,17 +16,20 @@ import { AlertPanel } from '@/components/features/market/components/AlertPanel';
 import { CreateAlertModal } from '@/components/features/market/components/CreateAlertModal';
 import { OrderFormPanel } from '@/components/portfolio/components/OrderFormPanel';
 import { tradeApi, PnLData } from '@/lib/api/tradeApi';
+import { fetchMarketQuote, QuoteModel } from '@/lib/api/marketApi';
+import { useMarketStream } from '@/lib/hooks/useMarketStream';
 import { TimeRange } from '@/types/timeRange';
 
 const TradeScreenContent: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlSymbol = searchParams.get('symbol');
-  const symbol = urlSymbol ? urlSymbol.toUpperCase() : 'BTC/USD';
+  // Fallback direct sur un actif géré par le simulateur Spring Boot
+  const rawSymbol = searchParams.get('symbol') || 'AAPL';
+  const symbol = rawSymbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
   const [searchValue, setSearchValue] = useState<string>(symbol);
   const [activeTool, setActiveTool] = useState<ChartTool>('crosshair');
-  const [selectedRange, setSelectedRange] = useState<TimeRange>('1D');
+  const [selectedRange, setSelectedRange] = useState<TimeRange>('3M');
   const [chartType, setChartType] = useState<'candlestick' | 'area'>('candlestick');
   const [chartAreaBounds, setChartAreaBounds] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [pnlData, setPnlData] = useState<PnLData | null>(null);
@@ -34,11 +37,64 @@ const TradeScreenContent: React.FC = () => {
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [alertRefreshKey, setAlertRefreshKey] = useState(0);
 
-  const currentPrice = 63432.5;
+  // Prix et variation dynamiques
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
+  const [baselinePrice, setBaselinePrice] = useState<number>(0);
 
   useEffect(() => {
     setSearchValue(symbol);
+    setBaselinePrice(0);
+
+    // // Initialisation du prix via REST si disponible
+    // fetchMarketQuote(symbol)
+    //   .then((quote) => {
+    //     if (quote && quote.price != null) {
+    //       const p = Number(quote.price);
+    //       setCurrentPrice(p);
+    //       if (quote.changePercent != null) {
+    //         setPriceChangePercent(Number(quote.changePercent));
+    //       }
+    //     }
+    //   })
+    //   .catch(() => {
+    //     // Fallback silencieux
+    //   });
   }, [symbol]);
+
+  // Réception de la cotation depuis le composant TradingChart
+  const handleChartPriceChange = useCallback((price: number, basePrice?: number) => {
+    if (price <= 0) return;
+    setCurrentPrice(price);
+
+    if (basePrice && basePrice > 0) {
+      setBaselinePrice(basePrice);
+      const diff = ((price - basePrice) / basePrice) * 100;
+      setPriceChangePercent(diff);
+    } else if (baselinePrice > 0) {
+      const diff = ((price - baselinePrice) / baselinePrice) * 100;
+      setPriceChangePercent(diff);
+    }
+  }, [baselinePrice]);
+
+  // Écoute du flux WebSocket STOMP en direct
+  const handlePriceUpdate = useCallback((quote: QuoteModel) => {
+    if (quote && quote.price != null) {
+      const p = Number(quote.price);
+      setCurrentPrice(p);
+      if (quote.changePercent != null) {
+        setPriceChangePercent(Number(quote.changePercent));
+      } else if (baselinePrice > 0) {
+        setPriceChangePercent(((p - baselinePrice) / baselinePrice) * 100);
+      }
+    }
+  }, [baselinePrice]);
+
+  useMarketStream({
+    symbol,
+    onPriceUpdate: handlePriceUpdate,
+    enabled: true,
+  });
 
   const toggleChartType = () => {
     setChartType((prev) => (prev === 'candlestick' ? 'area' : 'candlestick'));
@@ -84,14 +140,18 @@ const TradeScreenContent: React.FC = () => {
 
   const handleSearchChange = (newSymbol: string) => {
     setSearchValue(newSymbol);
-    if (newSymbol.trim()) {
-      router.push(`/trade?symbol=${encodeURIComponent(newSymbol.trim().toUpperCase())}`);
+    const cleaned = newSymbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    if (cleaned) {
+      router.push(`/trade?symbol=${encodeURIComponent(cleaned)}`);
     }
   };
 
   const formattedBalance = pnlData
     ? `${pnlData.currentBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
     : '100 000,00 $';
+
+  const isPositive = priceChangePercent >= 0;
+  const priceColor = isPositive ? '#16A34A' : '#DC2626';
 
   return (
     <View style={styles.screenContainer}>
@@ -120,12 +180,18 @@ const TradeScreenContent: React.FC = () => {
           <View style={styles.tickerOverlay}>
             <Text style={styles.tickerSymbol}>{symbol}</Text>
             <View style={styles.badgePill}>
-              <Text style={styles.badgePillText}>PERP</Text>
+              <Text style={styles.badgePillText}>SPOT</Text>
             </View>
-            <Text style={styles.tickerPrice}>
-              {currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            <Text style={[styles.tickerPrice, { color: priceColor }]}>
+              {currentPrice > 0
+                ? currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '---'}
             </Text>
-            <Text style={styles.tickerPercent}>+2.5%</Text>
+            <Text style={[styles.tickerPercent, { color: priceColor }]}>
+              {priceChangePercent !== 0
+                ? `${isPositive ? '+' : ''}${priceChangePercent.toFixed(2)}%`
+                : '0.00%'}
+            </Text>
           </View>
 
           <TradingChart
@@ -134,6 +200,7 @@ const TradeScreenContent: React.FC = () => {
             chartType={chartType}
             activeTool={activeTool}
             selectedRange={selectedRange}
+            onPriceChange={handleChartPriceChange}
           />
         </View>
 
@@ -142,7 +209,7 @@ const TradeScreenContent: React.FC = () => {
             <OrderFormPanel
               assetCode={symbol}
               currentPrice={currentPrice}
-              availableBalance={1.0}
+              availableBalance={pnlData?.currentBalance ?? 100000.0}
               onOrderSuccess={fetchPortfolio}
             />
           </View>
@@ -244,12 +311,12 @@ const styles = StyleSheet.create({
   tickerPrice: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#009F6B',
+    fontVariant: ['tabular-nums'],
   },
   tickerPercent: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#009F6B',
+    fontVariant: ['tabular-nums'],
   },
   orderPanelColumn: {
     width: 400,
