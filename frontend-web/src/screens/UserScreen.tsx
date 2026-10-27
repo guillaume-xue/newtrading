@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  useColorScheme,
   ActivityIndicator,
 } from 'react-native';
 import Image from 'next/image';
@@ -23,10 +22,10 @@ import { PortfolioTable } from '@/components/portfolio/components/tables/Portfol
 import { PortfolioPositionRow } from '@/components/portfolio/components/tables/PortfolioPositionRow';
 import { InteractiveMarketChart } from '@/components/features/market/components/InteractiveMarketChart';
 import { Button } from '@/components/ui/Button';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 // Assets visuels
 import ProfileIcon from '@/assets/icons/profile.svg';
-import EditIcon from '@/assets/icons/fi-rr-pencil.svg';
 import BankIcon from '@/assets/icons/bank.svg';
 import StatsIcon from '@/assets/icons/stats.svg';
 import ChartGrowIcon from '@/assets/icons/chat-arrow-grow.svg';
@@ -34,10 +33,6 @@ import ClockIcon from '@/assets/icons/fi-rr-clock.svg';
 import LockIcon from '@/assets/icons/fi-rr-lock.svg';
 import KeyIcon from '@/assets/icons/fi-rr-key.svg';
 import SlidersIcon from '@/assets/icons/fi-rr-settings-sliders.svg';
-
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
 
 type TabKey =
   | 'overview'
@@ -49,9 +44,8 @@ type TabKey =
 
 export const UserScreen: React.FC = () => {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const theme = isDark ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
 
   const { user } = useAuthStore();
 
@@ -175,12 +169,14 @@ export const UserScreen: React.FC = () => {
     maximumFractionDigits: 2,
   });
 
+  const iconFilter = useMemo(
+    () => (isDark ? 'brightness(0) invert(1)' : 'brightness(0)'),
+    [isDark]
+  );
+
   return (
     <ScrollView
-      style={[
-        styles.container,
-        { backgroundColor: theme['colors_bg_primary'] ?? '#F8FAFC' },
-      ]}
+      style={[styles.container, { backgroundColor: colors['colors_bg_primary'] }]}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
@@ -190,8 +186,10 @@ export const UserScreen: React.FC = () => {
           style={[
             styles.profileCard,
             {
-              backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-              borderColor: theme['colors_button_outline-border'] ?? '#E2E8F0',
+              backgroundColor: colors['colors_bg_secondary'],
+              borderColor: colors['colors_divider_text'],
+              padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
+              borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
             },
           ]}
         >
@@ -199,7 +197,7 @@ export const UserScreen: React.FC = () => {
             <View
               style={[
                 styles.avatarContainer,
-                { backgroundColor: theme['colors_bg_primary'] ?? '#F1F5F9' },
+                { backgroundColor: colors['colors_bg_primary'] },
               ]}
             >
               <Image
@@ -207,32 +205,29 @@ export const UserScreen: React.FC = () => {
                 width={36}
                 height={36}
                 alt="Avatar"
+                style={{ filter: iconFilter }}
               />
             </View>
             <View style={styles.profileDetails}>
-              <Text
-                style={[
-                  styles.usernameText,
-                  { color: theme['colors_text_primary'] ?? '#0F172A' },
-                ]}
-              >
+              <Text style={[styles.usernameText, { color: colors['colors_text_primary'] }]}>
                 {user?.email?.split('@')[0] || 'Username'}
               </Text>
-              <Text
-                style={[
-                  styles.profileSubText,
-                  { color: theme['colors_text_secondary'] ?? '#64748B' },
-                ]}
-              >
+              <Text style={[styles.profileSubText, { color: colors['colors_text_secondary'] }]}>
                 Compte : #{user?.id ? user.id.slice(0, 8).toUpperCase() : 'NT-000001'} &bull; Devise de référence : USD ($)
               </Text>
               <Text
                 style={[
                   styles.memberSinceText,
-                  { color: theme['colors_text_secondary'] ?? '#64748B' },
+                  {
+                    color: colors['colors_text_secondary'],
+                    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                  },
                 ]}
               >
-                Membre depuis : {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : 'Janvier 2027'}
+                Membre depuis :{' '}
+                {user?.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+                  : 'Janvier 2027'}
               </Text>
             </View>
           </View>
@@ -247,31 +242,28 @@ export const UserScreen: React.FC = () => {
         </View>
 
         {/* 2. Bloc Équité & Allocation */}
-        <View style={styles.dashboardGrid}>
-          {/* Bloc Gauche : Performance & Graphique */}
-          <View
-            style={[
-              styles.chartCard,
-              {
-                backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                borderColor: theme['colors_button_outline-border'] ?? '#E2E8F0',
-              },
-            ]}
-          >
+        <View
+          style={[
+            styles.dashboardGrid,
+            {
+              backgroundColor: colors['colors_bg_secondary'],
+              padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
+            },
+          ]}
+        >
+          <View style={styles.chartCard}>
             <View style={styles.equityHeader}>
-              <Text
-                style={[
-                  styles.equityLabel,
-                  { color: theme['colors_text_secondary'] ?? '#64748B' },
-                ]}
-              >
+              <Text style={[styles.equityLabel, { color: colors['colors_text_secondary'] }]}>
                 VALEUR TOTALE DU PORTEFEUILLE
               </Text>
               <View style={styles.equityValueRow}>
                 <Text
                   style={[
                     styles.equityValueText,
-                    { color: theme['colors_text_primary'] ?? '#0F172A' },
+                    {
+                      color: colors['colors_text_primary'],
+                      fontSize: primitives['typography_font size_font-size-32'] ?? 32,
+                    },
                   ]}
                 >
                   {formattedTotalValue} $
@@ -289,22 +281,19 @@ export const UserScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Bloc Droit : Allocation des Actifs */}
           <View
             style={[
               styles.allocationCardWrapper,
               {
-                backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                borderColor: theme['colors_button_outline-border'] ?? '#E2E8F0',
+                backgroundColor: colors['colors_bg_secondary'],
+                borderColor: colors['colors_divider_text'],
+                borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                borderWidth: primitives['border width_border-thin'] ?? 1,
+                padding: primitives['spacing & layout_padding & margin_space-8'] ?? 32,
               },
             ]}
           >
-            <Text
-              style={[
-                styles.allocationTitle,
-                { color: theme['colors_text_primary'] ?? '#0F172A' },
-              ]}
-            >
+            <Text style={[styles.allocationTitle, { color: colors['colors_text_primary'] }]}>
               Allocation des Actifs
             </Text>
 
@@ -344,7 +333,12 @@ export const UserScreen: React.FC = () => {
         <View
           style={[
             styles.tabsContainer,
-            { borderBottomColor: theme['colors_button_outline-border'] ?? '#E2E8F0' },
+            {
+              backgroundColor: colors['colors_bg_secondary'],
+              borderBottomColor: colors['colors_divider_text'],
+              paddingHorizontal: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
+              borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+            },
           ]}
         >
           {tabs.map((tab) => {
@@ -356,7 +350,7 @@ export const UserScreen: React.FC = () => {
                 style={[
                   styles.tabItem,
                   isActive && {
-                    borderBottomColor: theme['colors_text_primary'] ?? '#0F172A',
+                    borderBottomColor: colors['colors_text_primary'],
                     borderBottomWidth: 2,
                   },
                 ]}
@@ -367,7 +361,7 @@ export const UserScreen: React.FC = () => {
                   height={16}
                   alt={tab.label}
                   style={{
-                    filter: isDark ? 'brightness(0) invert(1)' : 'brightness(0)',
+                    filter: iconFilter,
                     opacity: isActive ? 1 : 0.5,
                   }}
                 />
@@ -375,10 +369,9 @@ export const UserScreen: React.FC = () => {
                   style={[
                     styles.tabLabel,
                     {
-                      color: isActive
-                        ? theme['colors_text_primary'] ?? '#0F172A'
-                        : theme['colors_text_secondary'] ?? '#64748B',
+                      color: isActive ? colors['colors_text_primary'] : colors['colors_text_secondary'],
                       fontWeight: isActive ? '700' : '500',
+                      fontSize: primitives['typography_font size_font-size-14'] ?? 14,
                     },
                   ]}
                 >
@@ -390,15 +383,31 @@ export const UserScreen: React.FC = () => {
         </View>
 
         {/* 4. Tableaux & Contenu dynamique */}
-        <View style={styles.tabContentSection}>
+        <View
+          style={[
+            styles.tabContentSection,
+            {
+              backgroundColor: colors['colors_bg_secondary'],
+              padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
+              borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+            },
+          ]}
+        >
           {isLoading ? (
-            <ActivityIndicator size="large" color="#2563EB" style={{ marginVertical: 48 }} />
+            <ActivityIndicator
+              size="large"
+              color={colors['colors_badge_primary-action-bg']}
+              style={{ marginVertical: 48 }}
+            />
           ) : activeTab === 'positions' || activeTab === 'overview' ? (
             <View>
               <Text
                 style={[
                   styles.tableSectionTitle,
-                  { color: theme['colors_text_primary'] ?? '#0F172A' },
+                  {
+                    color: colors['colors_text_primary'],
+                    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
+                  },
                 ]}
               >
                 Positions Ouvertes
@@ -416,9 +425,7 @@ export const UserScreen: React.FC = () => {
                         width={18}
                         height={18}
                         alt="Actif"
-                        style={{
-                          filter: isDark ? 'brightness(0) invert(1)' : 'brightness(0)',
-                        }}
+                        style={{ filter: iconFilter }}
                       />
                     }
                     averagePrice={item.averagePrice}
@@ -436,7 +443,10 @@ export const UserScreen: React.FC = () => {
               <Text
                 style={[
                   styles.tableFooterNote,
-                  { color: theme['colors_text_secondary'] ?? '#64748B' },
+                  {
+                    color: colors['colors_text_secondary'],
+                    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                  },
                 ]}
               >
                 Affichage de {defaultPositions.length} positions sur {defaultPositions.length} ouvertes
@@ -447,7 +457,10 @@ export const UserScreen: React.FC = () => {
               <Text
                 style={[
                   styles.tableSectionTitle,
-                  { color: theme['colors_text_primary'] ?? '#0F172A' },
+                  {
+                    color: colors['colors_text_primary'],
+                    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
+                  },
                 ]}
               >
                 Historique des Transactions
@@ -458,12 +471,14 @@ export const UserScreen: React.FC = () => {
                   style={[
                     styles.emptyContainer,
                     {
-                      backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                      borderColor: theme['colors_button_outline-border'] ?? '#E2E8F0',
+                      backgroundColor: colors['colors_bg_secondary'],
+                      borderColor: colors['colors_divider_text'],
+                      borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
+                      borderWidth: primitives['border width_border-thin'] ?? 1,
                     },
                   ]}
                 >
-                  <Text style={{ color: theme['colors_text_secondary'] ?? '#64748B' }}>
+                  <Text style={{ color: colors['colors_text_secondary'] }}>
                     Aucune transaction enregistrée dans le journal.
                   </Text>
                 </View>
@@ -492,12 +507,14 @@ export const UserScreen: React.FC = () => {
               style={[
                 styles.emptyContainer,
                 {
-                  backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                  borderColor: theme['colors_button_outline-border'] ?? '#E2E8F0',
+                  backgroundColor: colors['colors_bg_secondary'],
+                  borderColor: colors['colors_divider_text'],
+                  borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
+                  borderWidth: primitives['border width_border-thin'] ?? 1,
                 },
               ]}
             >
-              <Text style={{ color: theme['colors_text_secondary'] ?? '#64748B', fontSize: 14 }}>
+              <Text style={{ color: colors['colors_text_secondary'], fontSize: 14 }}>
                 Module « {tabs.find((t) => t.key === activeTab)?.label} » planifié pour la mise à jour V1.1.
               </Text>
             </View>
@@ -511,7 +528,6 @@ export const UserScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: lightColors['colors_bg_primary'] ?? '#f8fafc',
   },
   contentContainer: {
     paddingVertical: 4,
@@ -527,9 +543,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
-    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
   },
   profileLeft: {
     flexDirection: 'row',
@@ -554,13 +567,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   memberSinceText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
     fontWeight: '400',
   },
   dashboardGrid: {
     flexDirection: 'row',
-    backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
-    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
     gap: 16,
     minHeight: 460,
   },
@@ -583,7 +593,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   equityValueText: {
-    fontSize: primitives['typography_font size_font-size-32'] ?? 32,
     fontWeight: '800',
     letterSpacing: -0.6,
     fontVariant: ['tabular-nums'],
@@ -594,9 +603,6 @@ const styles = StyleSheet.create({
   },
   allocationCardWrapper: {
     flex: 1.1,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
-    padding: primitives['spacing & layout_padding & margin_space-8'] ?? 32,
     justifyContent: 'space-between',
     gap: 14,
   },
@@ -612,9 +618,7 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderBottomWidth: 1,
   },
   tabItem: {
     flexDirection: 'row',
@@ -624,30 +628,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     cursor: 'pointer',
   },
-  tabLabel: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-  },
+  tabLabel: {},
   tabContentSection: {
     gap: 16,
     flex: 1,
-    backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
-    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
   },
   tableSectionTitle: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     fontWeight: '700',
     marginBottom: 12,
   },
   tableFooterNote: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
     marginTop: 10,
     paddingLeft: 4,
   },
   emptyContainer: {
     padding: 48,
-    borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

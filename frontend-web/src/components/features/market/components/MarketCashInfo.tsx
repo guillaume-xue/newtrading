@@ -1,17 +1,16 @@
-// components/MarketCashInfo.tsx
-import React from 'react';
+'use client';
+
+// components/features/market/components/MarketCashInfo.tsx
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ViewStyle,
   TextStyle,
-  useColorScheme,
 } from 'react-native';
 
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface MarketCashInfoProps {
   /**
@@ -53,10 +52,10 @@ export const MarketCashInfo: React.FC<MarketCashInfoProps> = ({
   labelStyle,
   amountStyle,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
-  const formattedAmount = (() => {
+  const formattedAmount = useMemo(() => {
     if (typeof amount === 'number') {
       const formattedNumber = amount.toLocaleString('fr-FR', {
         minimumFractionDigits: decimals,
@@ -65,14 +64,24 @@ export const MarketCashInfo: React.FC<MarketCashInfoProps> = ({
       return `${formattedNumber} ${currency}`;
     }
     return amount;
-  })();
+  }, [amount, decimals, currency]);
 
   return (
-    <View style={[styles.container, style]}>
+    <View
+      style={[
+        styles.container,
+        { gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4 },
+        style,
+      ]}
+    >
       <Text
         style={[
           styles.label,
-          { color: theme['colors_text_primary'] },
+          {
+            color: colors['colors_text_secondary'],
+            fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+            lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+          },
           labelStyle,
         ]}
         numberOfLines={1}
@@ -82,7 +91,11 @@ export const MarketCashInfo: React.FC<MarketCashInfoProps> = ({
       <Text
         style={[
           styles.amount,
-          { color: theme['colors_text_primary'] },
+          {
+            color: colors['colors_text_primary'],
+            fontSize: primitives['typography_font size_font-size-18'] ?? 18,
+            lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
+          },
           amountStyle,
         ]}
         numberOfLines={1}
@@ -96,19 +109,17 @@ export const MarketCashInfo: React.FC<MarketCashInfoProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignSelf: 'flex-start',
-    gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   label: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
-    fontWeight: '800',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: -0.2,
   },
   amount: {
-    fontSize: primitives['typography_font size_font-size-18'] ?? 18,
-    lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
     fontWeight: '800',
     letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
   },
 });
+
+export default MarketCashInfo;

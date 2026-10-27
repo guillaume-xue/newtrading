@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+// components/features/market/components/TradingChart.tsx
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import {
   createChart,
@@ -15,11 +16,11 @@ import {
 
 import { fetchMarketHistory, CandleModel, QuoteModel } from '@/lib/api/marketApi';
 import { ChartTool } from '@/components/features/market/components/ChartToolbar';
-import { generateLocalMockCandles } from '@/utils/chartPath';
 import { useChartDrawings } from '@/hooks/useChartDrawings';
 import { ChartDrawingOverlay } from './ChartDrawingOverlay';
 import { TimeRange, getFromTimestampForRange } from '@/types/timeRange';
 import { useMarketStream } from '@/lib/hooks/useMarketStream';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface TradingChartProps {
   symbol: string;
@@ -38,19 +39,29 @@ interface TradingChartProps {
 
 export const TradingChart: React.FC<TradingChartProps> = ({
   symbol,
-  themeMode = 'light',
+  themeMode,
   chartType = 'candlestick',
   activeTool = 'crosshair',
   disableZoom = false,
   selectedRange = '1D',
   sparkline = false,
-  lineColor = '#2563EB',
-  topColor = 'rgba(37, 99, 235, 0.2)',
-  bottomColor = 'rgba(37, 99, 235, 0.0)',
+  lineColor,
+  topColor,
+  bottomColor,
   onDrawingsChange,
   onPriceChange,
 }) => {
-  // Normalisation du ticker pour le routage REST et le topic STOMP
+  const { theme } = useAppTheme();
+  const { colors, isDark } = theme;
+
+  // Résolution du mode effectif (priorité au context si themeMode n'est pas spécifié)
+  const effectiveIsDark = themeMode !== undefined ? themeMode === 'dark' : isDark;
+
+  // Couleurs résolues depuis le design system NewTrading
+  const resolvedLineColor = lineColor ?? colors['colors_badge_primary-action-bg'];
+  const resolvedTopColor = topColor ?? (effectiveIsDark ? 'rgba(37, 99, 235, 0.35)' : 'rgba(37, 99, 235, 0.2)');
+  const resolvedBottomColor = bottomColor ?? 'rgba(37, 99, 235, 0.0)';
+
   const cleanSymbol = symbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -81,11 +92,16 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     onDrawingsChange,
   });
 
-  // 1. Initialisation de la carte
+  // 1. Initialisation & mise à jour du Canvas Lightweight Charts
   useEffect(() => {
     if (!chartContainerRef.current) return;
     const container = chartContainerRef.current;
     const isArea = chartType === 'area';
+
+    const chartBg = colors['colors_bg_secondary'];
+    const textColor = colors['colors_text_secondary'];
+    const gridColor = effectiveIsDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+    const borderColor = colors['colors_divider_text'];
 
     const chart = createChart(container, {
       width: container.clientWidth || 900,
@@ -93,23 +109,23 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       layout: {
         background: {
           type: ColorType.Solid,
-          color: themeMode === 'dark' ? '#0D1117' : '#FFFFFF',
+          color: chartBg,
         },
-        textColor: themeMode === 'dark' ? '#8B949E' : '#64748B',
+        textColor: textColor,
         fontSize: 12,
       },
       grid: {
-        vertLines: { visible: !sparkline, color: themeMode === 'dark' ? '#1F2937' : '#F1F5F9' },
-        horzLines: { visible: !sparkline, color: themeMode === 'dark' ? '#1F2937' : '#F1F5F9' },
+        vertLines: { visible: !sparkline, color: gridColor },
+        horzLines: { visible: !sparkline, color: gridColor },
       },
       timeScale: {
         visible: !sparkline,
-        borderColor: themeMode === 'dark' ? '#30363D' : '#E2E8F0',
+        borderColor: borderColor,
         timeVisible: true,
       },
       rightPriceScale: {
         visible: !sparkline,
-        borderColor: themeMode === 'dark' ? '#30363D' : '#E2E8F0',
+        borderColor: borderColor,
       },
       crosshair: {
         vertLine: { visible: !sparkline },
@@ -121,26 +137,36 @@ export const TradingChart: React.FC<TradingChartProps> = ({
 
     const series = isArea
       ? chart.addSeries(AreaSeries, {
-          lineColor: lineColor,
-          topColor: topColor,
-          bottomColor: bottomColor,
+          lineColor: resolvedLineColor,
+          topColor: resolvedTopColor,
+          bottomColor: resolvedBottomColor,
           lineWidth: 2,
           priceLineVisible: !sparkline,
           lastValueVisible: !sparkline,
         })
       : chart.addSeries(CandlestickSeries, {
-          upColor: '#16A34A',
-          downColor: '#DC2626',
-          borderUpColor: '#16A34A',
-          borderDownColor: '#DC2626',
-          wickUpColor: '#16A34A',
-          wickDownColor: '#DC2626',
+          upColor: colors['colors_button_buy'],
+          downColor: colors['colors_button_sell'],
+          borderUpColor: colors['colors_button_buy'],
+          borderDownColor: colors['colors_button_sell'],
+          wickUpColor: colors['colors_button_buy'],
+          wickDownColor: colors['colors_button_sell'],
           priceLineVisible: !sparkline,
           lastValueVisible: !sparkline,
         });
 
     chartRef.current = chart;
     seriesRef.current = series;
+
+    // Réinjection des données si déjà chargées en mémoire
+    if (candlesDataRef.current.length > 0) {
+      if (isArea) {
+        const areaData = candlesDataRef.current.map((c) => ({ time: c.time, value: c.close }));
+        (series as ISeriesApi<'Area'>).setData(areaData);
+      } else {
+        (series as ISeriesApi<'Candlestick'>).setData(candlesDataRef.current);
+      }
+    }
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       setViewportTick((tick) => tick + 1);
@@ -163,20 +189,27 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, [chartType, themeMode, disableZoom]);
+  }, [
+    chartType,
+    effectiveIsDark,
+    disableZoom,
+    sparkline,
+    colors,
+    resolvedLineColor,
+    resolvedTopColor,
+    resolvedBottomColor,
+  ]);
 
   // Synchronisation des verrous de navigation lors des tracés
   useEffect(() => {
     if (!chartRef.current) return;
     chartRef.current.applyOptions({
-      handleScroll: !isDrawingActive && !inlineEditor && !disableZoom,
-      handleScale: !isDrawingActive && !inlineEditor && !disableZoom,
+      handleScroll: !isDrawingActive && !inlineEditor && !disableZoom && !sparkline,
+      handleScale: !isDrawingActive && !inlineEditor && !disableZoom && !sparkline,
     });
-  }, [isDrawingActive, inlineEditor, disableZoom]);
+  }, [isDrawingActive, inlineEditor, disableZoom, sparkline]);
 
-    // 2. Récupération des cours historiques
-  const lastFetchedSymbolRef = useRef<string | null>(null);
-
+  // 2. Récupération des cours historiques
   useEffect(() => {
     let isMounted = true;
 
@@ -185,11 +218,9 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       let candles: CandlestickData[] = [];
 
       try {
-        console.log(`[API CALL] Récupération de l'historique pour : ${cleanSymbol}`);
         const data: CandleModel[] = await fetchMarketHistory(cleanSymbol);
 
         if (Array.isArray(data) && data.length > 0) {
-          console.log(`[API RESPONSE] Reçu pour ${cleanSymbol} :`, data.length, 'bougies réelles');
           candles = data
             .map((item) => ({
               time: Math.floor(new Date(item.timestamp).getTime() / 1000) as UTCTimestamp,
@@ -201,7 +232,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
             .sort((a, b) => (a.time as number) - (b.time as number));
         }
       } catch (error) {
-        console.error(`[API ERROR] Impossible de charger l'historique réel pour ${cleanSymbol} :`, error);
+        console.error(`[API ERROR] Chargement historique pour ${cleanSymbol} :`, error);
       }
 
       if (!isMounted || !seriesRef.current || candles.length === 0) {
@@ -236,9 +267,9 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [cleanSymbol, chartType]); // <-- Retrait de onPriceChange et selectedRange
+  }, [cleanSymbol, chartType]);
 
-  // 3. Réception et injection des ticks WebSocket en direct
+  // 3. Réception et injection des ticks WebSocket
   const handleLiveQuote = useCallback(
     (quote: QuoteModel) => {
       if (!seriesRef.current || candlesDataRef.current.length === 0) return;
@@ -246,7 +277,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       const price = Number(quote.price);
       if (isNaN(price)) return;
 
-      // Remonte le prix tick-by-tick vers TradeScreen
       onPriceChange?.(price);
 
       const currentCandles = candlesDataRef.current;
@@ -263,7 +293,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         return;
       }
 
-      // Mise à jour de la bougie active
       const updatedCandle: CandlestickData = {
         time: lastCandle.time,
         open: lastCandle.open,
@@ -305,10 +334,19 @@ export const TradingChart: React.FC<TradingChartProps> = ({
   }, [selectedRange]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors['colors_bg_secondary'] }]}>
       {loading && (
-        <View style={styles.overlay}>
-          <ActivityIndicator size="large" color="#2563EB" />
+        <View
+          style={[
+            styles.overlay,
+            {
+              backgroundColor: effectiveIsDark
+                ? 'rgba(11, 15, 25, 0.7)'
+                : 'rgba(255, 255, 255, 0.7)',
+            },
+          ]}
+        >
+          <ActivityIndicator size="large" color={colors['colors_badge_primary-action-bg']} />
         </View>
       )}
 
@@ -348,7 +386,6 @@ const styles = StyleSheet.create({
     height: '100%',
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
   },
   overlay: {
     position: 'absolute',
@@ -356,7 +393,6 @@ const styles = StyleSheet.create({
     zIndex: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
 });
 

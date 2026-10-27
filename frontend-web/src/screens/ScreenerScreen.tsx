@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AppFooter } from '@/components/layout/AppFooter';
@@ -12,10 +12,7 @@ import {
   SortField,
   SortOrder,
 } from '@/components/features/market/components/tables/ScreenerTable';
-
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 type AssetCategory = 'TOUT' | 'ACTIONS' | 'CRYPTO' | 'INDICES';
 
@@ -31,17 +28,17 @@ const INITIAL_SCREENER_DATA: ScreenerItem[] = [
 ];
 
 export const ScreenerScreen: React.FC = () => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   const [selectedCategory, setSelectedCategory] = useState<AssetCategory>('TOUT');
   const [sortField, setSortField] = useState<SortField>('currentPrice');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  const textPrimary = theme['colors_text_primary'] ?? primitives.color_neutral_950;
-  const textSecondary = theme['colors_text_secondary'] ?? primitives.color_neutral_500;
-  const bgCard = theme['colors_bg_secondary'] ?? primitives.color_neutral_0;
-  const borderCard = theme['colors_divider_text'] ?? primitives.color_neutral_200;
+  const textPrimary = colors['colors_text_primary'];
+  const textSecondary = colors['colors_text_secondary'];
+  const bgCard = colors['colors_bg_secondary'];
+  const borderCard = colors['colors_divider_text'];
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -67,23 +64,47 @@ export const ScreenerScreen: React.FC = () => {
   }, [selectedCategory, sortField, sortOrder]);
 
   return (
-    <View
-      style={[
-        styles.screen,
-        { backgroundColor: theme['colors_bg_primary'] ?? primitives.color_neutral_50 },
-      ]}
-    >
+    <View style={[styles.screen, { backgroundColor: colors['colors_bg_primary'] }]}>
       <TopMarketTickerBar />
       <AppHeader />
 
       <View style={styles.content}>
-        <View style={[styles.headerBlock, { backgroundColor: bgCard, borderColor: borderCard }]}>
-          <Text style={[styles.pageTitle, { color: textPrimary }]}>
+        <View
+          style={[
+            styles.headerBlock,
+            {
+              backgroundColor: bgCard,
+              borderColor: borderCard,
+              padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
+              borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.pageTitle,
+              {
+                color: textPrimary,
+                fontSize: primitives['typography_font size_font-size-64'] ?? 64,
+                lineHeight: primitives['typography_line height_line-height-64'] ?? 64,
+              },
+            ]}
+          >
             Toutes les actions
           </Text>
         </View>
 
-        <View style={[styles.contentBlock, { backgroundColor: bgCard, borderColor: borderCard }]}>
+        <View
+          style={[
+            styles.contentBlock,
+            {
+              backgroundColor: bgCard,
+              borderColor: borderCard,
+              padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
+              borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+            },
+          ]}
+        >
           <View style={styles.categoryTabs}>
             {CATEGORIES.map((cat) => {
               const isActive = selectedCategory === cat;
@@ -94,8 +115,8 @@ export const ScreenerScreen: React.FC = () => {
                   style={[
                     styles.categoryTab,
                     isActive && {
-                      backgroundColor: theme['colors_bg_primary'] ?? primitives.color_neutral_100,
-                      borderColor: theme['colors_button_outline-border'] ?? primitives.color_neutral_300,
+                      backgroundColor: colors['colors_bg_primary'],
+                      borderColor: colors['colors_button_outline-border'],
                     },
                   ]}
                 >
@@ -147,20 +168,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 12,
   },
   pageTitle: {
-    fontSize: primitives['typography_font size_font-size-64'] ?? 64,
-    lineHeight: primitives['typography_line height_line-height-64'] ?? 64,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   contentBlock: {
     flexDirection: 'column',
     flex: 1,
-    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 12,
     gap: 32,
   },
   categoryTabs: {

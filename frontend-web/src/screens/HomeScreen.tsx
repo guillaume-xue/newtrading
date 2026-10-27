@@ -1,8 +1,7 @@
-// screens/HomeScreen.tsx
 'use client';
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, useColorScheme } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable } from 'react-native';
 import { useRouter } from 'next/navigation';
 
 import { AppHeader, HeaderVariant } from '@/components/layout/AppHeader';
@@ -16,54 +15,36 @@ import { MarketOverviewTable } from '@/components/features/market/components/tab
 import { MarketOverviewRow } from '@/components/features/market/components/tables/MarketOverviewRow';
 import { MarketHeatmapWidget } from '@/components/features/market/components/MarketHeatmapWidget';
 import { useAuthStore } from '@/lib/stores/useAuthStore';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 const INDICES_DATA = [
   {
-    countryOrCategory: 'ALLEMAGNE',
-    indexName: 'DAX 40',
-    symbol: 'DAX40',
-    points: 18321.12,
-    equivalentAmount: '2 283,10$',
+    countryOrCategory: 'ÉTATS-UNIS',
+    indexName: 'S&P 500 ETF',
+    symbol: 'SPY',
+    points: 534.91,
+    equivalentAmount: '534,91$',
     changePercent: 0.43,
   },
   {
-    countryOrCategory: 'FRANCE',
-    indexName: 'CAC 40',
-    symbol: 'CAC40',
-    points: 7632.40,
-    equivalentAmount: '954,30$',
-    changePercent: -0.12,
-  },
-  {
-    countryOrCategory: 'ÉTATS-UNIS',
-    indexName: 'S&P 500',
-    symbol: 'SPX',
-    points: 5349.10,
-    equivalentAmount: '5 349,10$',
-    changePercent: -0.43,
-  },
-];
-
-const STOCKS_DATA = [
-  {
     countryOrCategory: 'TECHNOLOGIE',
-    indexName: 'NASDAQ',
-    symbol: 'NDX',
-    points: 18240.20,
-    equivalentAmount: '18 240,20$',
+    indexName: 'NASDAQ 100 ETF',
+    symbol: 'QQQ',
+    points: 448.20,
+    equivalentAmount: '448,20$',
     changePercent: 0.85,
   },
   {
     countryOrCategory: 'INDUSTRIE',
-    indexName: 'DOW JONES',
-    symbol: 'DJI',
-    points: 39120.00,
-    equivalentAmount: '39 120,00$',
+    indexName: 'DOW JONES ETF',
+    symbol: 'DIA',
+    points: 391.20,
+    equivalentAmount: '391,20$',
     changePercent: -0.28,
   },
+];
+
+const STOCKS_DATA = [
   {
     countryOrCategory: 'TECHNOLOGIE',
     indexName: 'APPLE',
@@ -79,6 +60,14 @@ const STOCKS_DATA = [
     points: 448.37,
     equivalentAmount: '448,37$',
     changePercent: -0.64,
+  },
+  {
+    countryOrCategory: 'TECHNOLOGIE',
+    indexName: 'NVIDIA',
+    symbol: 'NVDA',
+    points: 128.50,
+    equivalentAmount: '128,50$',
+    changePercent: 3.42,
   },
 ];
 
@@ -107,20 +96,12 @@ const CRYPTOS_DATA = [
     equivalentAmount: '152,40$',
     changePercent: 4.80,
   },
-  {
-    countryOrCategory: 'CRYPTO',
-    indexName: 'BINANCE COIN',
-    symbol: 'BNBUSDT',
-    points: 585.10,
-    equivalentAmount: '585,10$',
-    changePercent: -0.62,
-  },
 ];
 
 export const HomeScreen: React.FC = () => {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   const [activeTab, setActiveTab] = useState<string>('markets');
   const [search, setSearch] = useState<string>('');
@@ -128,30 +109,17 @@ export const HomeScreen: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
   const headerVariant: HeaderVariant = isAuthenticated ? 'authenticated' : 'guest';
 
-  const [selectedIndexSymbol, setSelectedIndexSymbol] = useState<string>('DAX40');
-  const currentSelected = INDICES_DATA.find((item) => item.symbol === selectedIndexSymbol);
+  const [selectedIndexSymbol, setSelectedIndexSymbol] = useState<string>('SPY');
+  const currentSelected = INDICES_DATA.find((item) => item.symbol === selectedIndexSymbol) ?? INDICES_DATA[0];
 
-  const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>('NDX');
-  const currentSelectedStock = STOCKS_DATA.find((item) => item.symbol === selectedStockSymbol);
-
-  const [selectedCryptoSymbol, setSelectedCryptoSymbol] = useState<string>('BTCUSDT');
-  const currentSelectedCrypto = CRYPTOS_DATA.find((item) => item.symbol === selectedCryptoSymbol);
+  const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>('AAPL');
+  const currentSelectedStock = STOCKS_DATA.find((item) => item.symbol === selectedStockSymbol) ?? STOCKS_DATA[0];
 
   const [showAuthSelection, setShowAuthSelection] = useState<boolean>(false);
   const [targetModal, setTargetModal] = useState<AuthModalType>(null);
 
   const handleAssetPress = (symbol: string) => {
     router.push(`/trade?symbol=${symbol}`);
-  };
-
-  const handleLoginPress = () => {
-    setTargetModal('login');
-    setShowAuthSelection(true);
-  };
-
-  const handleRegisterPress = () => {
-    setTargetModal('signup');
-    setShowAuthSelection(true);
   };
 
   const handleAuthSuccess = () => {
@@ -165,13 +133,7 @@ export const HomeScreen: React.FC = () => {
   };
 
   return (
-    <View
-      style={[
-        styles.screen,
-        { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
-      ]}
-    >
-      {/* Barre supérieure de cotations rapides sous le header */}
+    <View style={[styles.screen, { backgroundColor: colors['colors_bg_primary'] }]}>
       {!showAuthSelection && <TopMarketTickerBar />}
 
       {!showAuthSelection && (
@@ -186,10 +148,7 @@ export const HomeScreen: React.FC = () => {
         />
       )}
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.mainContent}>
           {showAuthSelection ? (
             <AuthSelectionScreen
@@ -200,49 +159,109 @@ export const HomeScreen: React.FC = () => {
             />
           ) : (
             <View style={styles.container}>
-              {/* Introduction de la page */}
-              <View style={styles.sectionHeaderIntro}>
-                <Text style={[styles.mainTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+              {/* Introduction */}
+              <View
+                style={[
+                  styles.sectionHeaderIntro,
+                  {
+                    backgroundColor: colors['colors_bg_secondary'],
+                    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
+                    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.mainTitle,
+                    {
+                      color: colors['colors_text_primary'],
+                      fontSize: primitives['typography_font size_font-size-64'] ?? 64,
+                    },
+                  ]}
+                >
                   Les marchés
                 </Text>
-                <Text style={[styles.subTitle, { color: theme['colors_text_secondary'] ?? '#64748B' }]}>
+                <Text
+                  style={[
+                    styles.subTitle,
+                    {
+                      color: colors['colors_text_secondary'],
+                      fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                    },
+                  ]}
+                >
                   Cotations en temps réel, analyses et flux de performance courantes.
                 </Text>
               </View>
 
               {/* Section 1 : Indices */}
-              <View style={styles.section}>
+              <View
+                style={[
+                  styles.section,
+                  {
+                    backgroundColor: colors['colors_bg_secondary'],
+                    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 16,
+                    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                  },
+                ]}
+              >
                 <Pressable onPress={() => router.push('/screener')} style={styles.sectionTitlePressable}>
-                  <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: colors['colors_text_primary'],
+                        fontSize: primitives['typography_font size_font-size-48'] ?? 48,
+                      },
+                    ]}
+                  >
                     Indices {'>'}
                   </Text>
                 </Pressable>
 
                 <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                   <View style={styles.indicesGrid}>
-                    {INDICES_DATA.map((item, idx) => (
-                      <MarketIndexCard
-                        key={`${item.symbol}-${idx}`}
-                        countryOrCategory={item.countryOrCategory}
-                        indexName={item.indexName}
-                        symbol={item.symbol}
-                        points={item.points}
-                        equivalentAmount={item.equivalentAmount}
-                        changePercent={item.changePercent}
-                        cardType="index"
-                        style={styles.cardFlex}
-                        onPress={() => setSelectedIndexSymbol(item.symbol)}
-                      />
-                    ))}
+                    {INDICES_DATA.map((item, idx) => {
+                      const isSelected = item.symbol === selectedIndexSymbol;
+                      return (
+                        <MarketIndexCard
+                          key={`${item.symbol}-${idx}`}
+                          countryOrCategory={item.countryOrCategory}
+                          indexName={item.indexName}
+                          symbol={item.symbol}
+                          points={item.points}
+                          equivalentAmount={item.equivalentAmount}
+                          changePercent={item.changePercent}
+                          cardType="index"
+                          style={[
+                            styles.cardFlex,
+                            isSelected && {
+                              borderWidth: 2,
+                              borderColor: colors['colors_badge_primary-action-bg'],
+                            },
+                          ]}
+                          onPress={() => setSelectedIndexSymbol(item.symbol)}
+                        />
+                      );
+                    })}
                   </View>
                 </ScrollView>
 
-                {/* Graphique global & Heatmap */}
                 <View style={styles.chartAndHeatmapRow}>
-                  <View style={styles.chartContainerCard}>
+                  <View
+                    style={[
+                      styles.chartContainerCard,
+                      {
+                        backgroundColor: colors['colors_bg_secondary'],
+                        borderColor: colors['colors_divider_text'],
+                      },
+                    ]}
+                  >
                     <InteractiveMarketChart
+                      key={`index-${selectedIndexSymbol}`}
                       symbol={selectedIndexSymbol}
-                      changePercent={currentSelected?.changePercent}
+                      changePercent={currentSelected.changePercent}
+                      onFullscreenPress={() => handleAssetPress(selectedIndexSymbol)}
                     />
                   </View>
 
@@ -257,43 +276,97 @@ export const HomeScreen: React.FC = () => {
               </View>
 
               {/* Section 2 : Actions */}
-              <View style={styles.section}>
+              <View
+                style={[
+                  styles.section,
+                  {
+                    backgroundColor: colors['colors_bg_secondary'],
+                    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 16,
+                    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                  },
+                ]}
+              >
                 <Pressable onPress={() => router.push('/screener')} style={styles.sectionTitlePressable}>
-                  <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: colors['colors_text_primary'],
+                        fontSize: primitives['typography_font size_font-size-48'] ?? 48,
+                      },
+                    ]}
+                  >
                     Actions {'>'}
                   </Text>
                 </Pressable>
 
                 <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                   <View style={styles.indicesGrid}>
-                    {STOCKS_DATA.map((item, idx) => (
-                      <MarketIndexCard
-                        key={`${item.symbol}-${idx}`}
-                        countryOrCategory={item.countryOrCategory}
-                        indexName={item.indexName}
-                        symbol={item.symbol}
-                        points={item.points}
-                        equivalentAmount={item.equivalentAmount}
-                        changePercent={item.changePercent}
-                        cardType="stock"
-                        style={styles.cardFlex}
-                        onPress={() => setSelectedStockSymbol(item.symbol)}
-                      />
-                    ))}
+                    {STOCKS_DATA.map((item, idx) => {
+                      const isSelected = item.symbol === selectedStockSymbol;
+                      return (
+                        <MarketIndexCard
+                          key={`${item.symbol}-${idx}`}
+                          countryOrCategory={item.countryOrCategory}
+                          indexName={item.indexName}
+                          symbol={item.symbol}
+                          points={item.points}
+                          equivalentAmount={item.equivalentAmount}
+                          changePercent={item.changePercent}
+                          cardType="stock"
+                          style={[
+                            styles.cardFlex,
+                            isSelected && {
+                              borderWidth: 2,
+                              borderColor: colors['colors_badge_primary-action-bg'],
+                            },
+                          ]}
+                          onPress={() => setSelectedStockSymbol(item.symbol)}
+                        />
+                      );
+                    })}
                   </View>
                 </ScrollView>
-                <View style={styles.chartContainerCard}>
+
+                <View
+                  style={[
+                    styles.chartContainerCardFull,
+                    {
+                      backgroundColor: colors['colors_bg_secondary'],
+                      borderColor: colors['colors_divider_text'],
+                    },
+                  ]}
+                >
                   <InteractiveMarketChart
+                    key={`stock-${selectedStockSymbol}`}
                     symbol={selectedStockSymbol}
-                    changePercent={currentSelectedStock?.changePercent}
+                    changePercent={currentSelectedStock.changePercent}
+                    onFullscreenPress={() => handleAssetPress(selectedStockSymbol)}
                   />
                 </View>
               </View>
 
               {/* Section 3 : Cryptomonnaies */}
-              <View style={styles.section}>
+              <View
+                style={[
+                  styles.section,
+                  {
+                    backgroundColor: colors['colors_bg_secondary'],
+                    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 16,
+                    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                  },
+                ]}
+              >
                 <Pressable onPress={() => router.push('/screener')} style={styles.sectionTitlePressable}>
-                  <Text style={[styles.sectionTitle, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: colors['colors_text_primary'],
+                        fontSize: primitives['typography_font size_font-size-48'] ?? 48,
+                      },
+                    ]}
+                  >
                     Cryptomonnaies {'>'}
                   </Text>
                 </Pressable>
@@ -352,13 +425,8 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 4,
   },
-  sectionHeaderIntro: {
-    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
-    backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
-  },
+  sectionHeaderIntro: {},
   mainTitle: {
-    fontSize: primitives['typography_font size_font-size-64'] ?? 64,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
@@ -367,18 +435,12 @@ const styles = StyleSheet.create({
     cursor: 'pointer',
   },
   sectionTitle: {
-    fontSize: primitives['typography_font size_font-size-48'] ?? 48,
     fontWeight: '600',
     letterSpacing: -0.5,
   },
-  subTitle: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-  },
+  subTitle: {},
   section: {
     gap: 16,
-    backgroundColor: lightColors['colors_bg_secondary'] ?? '#ffffff',
-    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 16,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
   },
   indicesGrid: {
     flexDirection: 'row',
@@ -393,20 +455,26 @@ const styles = StyleSheet.create({
     gap: 16,
     alignItems: 'stretch',
     width: '100%',
-    overflow: 'hidden',
   },
   chartContainerCard: {
     flex: 1,
-    flexBasis: 0,
     height: 520,
     minWidth: 0,
-    minHeight: 520,
-    overflow: 'hidden',
-    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
+  chartContainerCardFull: {
+    width: '100%',
+    height: 520,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
   },
   heatmapColumn: {
     flexShrink: 0,
-    overflow: 'hidden',
+    width: 400,
+    minWidth: 0,
   },
   cryptoRow: {
     flexDirection: 'row',

@@ -1,40 +1,24 @@
-// components/PercentageBadge.tsx
-import React from 'react';
+'use client';
+
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ViewStyle,
   TextStyle,
-  useColorScheme,
 } from 'react-native';
 
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export type BadgeDirection = 'up' | 'down';
 
 export interface PercentageBadgeProps {
-  /**
-   * Valeur numérique (ex: 0.43 ou -0.43) ou texte formaté (ex: "+0,43%")
-   */
   value: number | string;
-  /**
-   * Forcer la direction ('up' | 'down') si non déductible automatiquement
-   */
   direction?: BadgeDirection;
-  /**
-   * Nombre de décimales pour le formatage numérique (par défaut : 2)
-   */
   decimals?: number;
-  /**
-   * Styles personnalisés pour le conteneur
-   */
+  bordered?: boolean;
   style?: ViewStyle;
-  /**
-   * Styles personnalisés pour le texte
-   */
   textStyle?: TextStyle;
 }
 
@@ -42,47 +26,52 @@ export const PercentageBadge: React.FC<PercentageBadgeProps> = ({
   value,
   direction,
   decimals = 2,
+  bordered = false,
   style,
   textStyle,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
-  // 1. Détermination de la direction (hausse / baisse)
-  const isUp =
-    direction !== undefined
-      ? direction === 'up'
-      : typeof value === 'number'
-      ? value >= 0
-      : !value.trim().startsWith('-');
+  const isUp = useMemo(() => {
+    if (direction !== undefined) return direction === 'up';
+    if (typeof value === 'number') return value >= 0;
+    return !String(value).trim().startsWith('-');
+  }, [direction, value]);
 
-  // 2. Formatage du libellé affiché
-  const displayValue = (() => {
+  const displayValue = useMemo(() => {
     if (typeof value === 'number') {
       const sign = isUp ? '+' : '';
       const formattedNumber = Math.abs(value).toLocaleString('fr-FR', {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
       });
-      return `${sign}${isUp ? '' : '-'}${formattedNumber}%`;
+      return `${sign}${isUp ? '' : '-'}${formattedNumber} %`;
     }
-    return value;
-  })();
+    return String(value);
+  }, [value, isUp, decimals]);
 
-  // 3. Récupération des tokens de thème
   const backgroundColor = isUp
-    ? theme['colors_badge_up-bg']
-    : theme['colors_badge_down-bg'];
+    ? colors['colors_badge_up-bg']
+    : colors['colors_badge_down-bg'];
 
   const textColor = isUp
-    ? theme['colors_badge_up-text']
-    : theme['colors_badge_down-text'];
+    ? colors['colors_badge_up-text']
+    : colors['colors_badge_down-text'];
+
+  const borderColor = isUp
+    ? colors['colors_badge_up-border']
+    : colors['colors_badge_down-border'];
 
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor },
+        {
+          backgroundColor,
+          borderColor: bordered ? borderColor : 'transparent',
+          borderWidth: bordered ? (primitives['border width_border-thin'] ?? 1) : 0,
+        },
         style,
       ]}
     >
@@ -105,14 +94,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
-    borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
   },
   text: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
     textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
 });

@@ -1,12 +1,10 @@
-// src/components/features/market/components/MarketHeatmapWidget.tsx
 'use client';
 
+// src/components/features/market/components/MarketHeatmapWidget.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { HeatmapTile } from './HeatmapTile';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface MarketHeatmapWidgetProps {
   title?: string;
@@ -19,16 +17,20 @@ export const MarketHeatmapWidget: React.FC<MarketHeatmapWidgetProps> = ({
   onViewAllPress,
   onAssetPress,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   return (
     <View
       style={[
         styles.widgetCard,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderColor: theme['colors_button_outline-border'] ?? '#E5E7EB',
+          backgroundColor: colors['colors_bg_secondary'],
+          borderColor: colors['colors_button_outline-border'],
+          borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
+          borderWidth: primitives['border width_border-thin'] ?? 1,
+          padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+          gap: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
         },
       ]}
     >
@@ -36,17 +38,20 @@ export const MarketHeatmapWidget: React.FC<MarketHeatmapWidgetProps> = ({
       <Text
         style={[
           styles.widgetTitle,
-          { color: theme['colors_text_primary'] ?? '#0B0F19' },
+          {
+            color: colors['colors_text_primary'],
+            fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+            lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+          },
         ]}
       >
         {title}
       </Text>
 
-      {/* 2. Grille Treemap Asymétrique prenant tout l'espace disponible */}
+      {/* 2. Grille Treemap Asymétrique */}
       <View style={styles.gridContainer}>
         {/* Ligne du haut : Grande tuile à gauche + 2 tuiles superposées à droite */}
         <View style={styles.topSection}>
-          {/* Tuile Haute Gauche */}
           <HeatmapTile
             symbol="NVDA"
             sector="Tech"
@@ -58,7 +63,6 @@ export const MarketHeatmapWidget: React.FC<MarketHeatmapWidgetProps> = ({
             style={styles.largeTile}
           />
 
-          {/* Colonne Droite : 2 tuiles empilées */}
           <View style={styles.rightColumn}>
             <HeatmapTile
               symbol="NVDA"
@@ -126,7 +130,11 @@ export const MarketHeatmapWidget: React.FC<MarketHeatmapWidgetProps> = ({
         <Text
           style={[
             styles.viewAllText,
-            { color: theme['colors_text_primary'] ?? '#0B0F19' },
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
           ]}
         >
           Voir tout &gt;
@@ -140,17 +148,11 @@ const styles = StyleSheet.create({
   widgetCard: {
     width: '100%',
     height: '100%',
-    minWidth: 440,
-    borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
-    padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    gap: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+    minWidth: 0,
     justifyContent: 'space-between',
     overflow: 'hidden',
   },
   widgetTitle: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
@@ -202,11 +204,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   viewAllText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '700',
   },
   pressed: {
     opacity: 0.7,
   },
 });
+
+export default MarketHeatmapWidget;

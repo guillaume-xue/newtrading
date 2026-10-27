@@ -1,6 +1,6 @@
 'use client';
 
-// components/TopMarketTickerBar.tsx
+// components/layout/TopMarketTickerBar.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -9,14 +9,11 @@ import {
   Easing,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
   LayoutChangeEvent,
 } from 'react-native';
 
 import { MarketTickerItem, MarketTickerItemProps } from '@/components/features/market/components/MarketTickerItem';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface TickerData extends MarketTickerItemProps {
   id: string | number;
@@ -48,16 +45,14 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
   speed = 45,
   style,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   const [contentWidth, setContentWidth] = useState(0);
   const [animatedMarquee] = useState(() => new Animated.Value(0));
-
-  // Animation du clignotement
   const [pulseAnim] = useState(() => new Animated.Value(1));
 
-  // 1. Boucle de clignotement du point vert
+  // 1. Boucle de clignotement du point d'état
   useEffect(() => {
     if (!isMarketOpen) {
       pulseAnim.setValue(1);
@@ -103,7 +98,7 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
     const loopAnimation = Animated.loop(
       Animated.timing(animatedMarquee, {
         toValue: -contentWidth,
-        duration: duration,
+        duration,
         easing: Easing.linear,
         useNativeDriver: false,
       })
@@ -114,13 +109,18 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
     return () => loopAnimation.stop();
   }, [contentWidth, speed, animatedMarquee]);
 
+  const dotColor = isMarketOpen
+    ? colors['colors_button_buy']
+    : colors['colors_button_sell'];
+
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderBottomColor: theme['colors_divider_text'] ?? '#D1D5DB',
+          backgroundColor: colors['colors_bg_secondary'],
+          borderBottomColor: colors['colors_divider_text'],
+          borderBottomWidth: primitives['border width_border-thin'] ?? 1,
         },
         style,
       ]}
@@ -129,16 +129,18 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
       <View
         style={[
           styles.statusSection,
-          { backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF' },
+          {
+            backgroundColor: colors['colors_bg_secondary'],
+            paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+            gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+          },
         ]}
       >
         <Animated.View
           style={[
             styles.statusDot,
             {
-              backgroundColor: isMarketOpen
-                ? (theme['colors_button_buy'] ?? '#059669')
-                : (theme['colors_button_sell'] ?? '#DC2626'),
+              backgroundColor: dotColor,
               opacity: pulseAnim,
               transform: [
                 {
@@ -155,7 +157,11 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
         <Text
           style={[
             styles.statusText,
-            { color: theme['colors_text_primary'] ?? '#0B0F19' },
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+              lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+            },
           ]}
           numberOfLines={1}
         >
@@ -165,13 +171,19 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
         <View
           style={[
             styles.timezoneBadge,
-            { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+            {
+              backgroundColor: colors['colors_bg_primary'],
+              borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
+            },
           ]}
         >
           <Text
             style={[
               styles.timezoneText,
-              { color: theme['colors_text_primary'] ?? '#0B0F19' },
+              {
+                color: colors['colors_text_primary'],
+                fontSize: primitives['typography_font size_font-size-10'] ?? 10,
+              },
             ]}
           >
             {timezone}
@@ -181,7 +193,10 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
         <View
           style={[
             styles.divider,
-            { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
+            {
+              backgroundColor: colors['colors_divider_text'],
+              marginLeft: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
+            },
           ]}
         />
       </View>
@@ -196,7 +211,16 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
             },
           ]}
         >
-          <View style={styles.tickerGroup} onLayout={handleLayout}>
+          <View
+            style={[
+              styles.tickerGroup,
+              {
+                gap: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+                paddingRight: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+              },
+            ]}
+            onLayout={handleLayout}
+          >
             {items.map((ticker) => (
               <MarketTickerItem
                 key={`a-${ticker.id}`}
@@ -208,7 +232,15 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
             ))}
           </View>
 
-          <View style={styles.tickerGroup}>
+          <View
+            style={[
+              styles.tickerGroup,
+              {
+                gap: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+                paddingRight: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+              },
+            ]}
+          >
             {items.map((ticker) => (
               <MarketTickerItem
                 key={`b-${ticker.id}`}
@@ -236,10 +268,8 @@ const styles = StyleSheet.create({
   statusSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
     zIndex: 2,
     elevation: 2,
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
   },
   statusDot: {
     width: 8,
@@ -247,25 +277,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
     fontWeight: '600',
   },
   timezoneBadge: {
     paddingVertical: 2,
     paddingHorizontal: 6,
-    borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
   timezoneText: {
-    fontSize: primitives['typography_font size_font-size-10'] ?? 10,
     fontWeight: '700',
   },
   divider: {
     width: 1,
     height: 16,
-    marginLeft: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   marqueeViewport: {
     flex: 1,
@@ -280,7 +305,7 @@ const styles = StyleSheet.create({
   tickerGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
-    paddingRight: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
   },
 });
+
+export default TopMarketTickerBar;

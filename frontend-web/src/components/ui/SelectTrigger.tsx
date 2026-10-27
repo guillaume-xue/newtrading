@@ -1,21 +1,19 @@
 // src/components/SelectTrigger.tsx
-import React from 'react';
+'use client';
+
+import React, { useMemo } from 'react';
 import {
   Pressable,
   Text,
   View,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
   Platform,
 } from 'react-native';
 import Image from 'next/image';
 
 import AngleRight from '@/assets/icons/angle-small-right.svg';
-
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export type SelectVariant = 'boxed' | 'ghost' | 'compact';
 
@@ -49,8 +47,9 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({
   disabled = false,
   style,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
+
   const [isOpen, setIsOpen] = React.useState(false);
   const [internalValue, setInternalValue] = React.useState(value ?? '');
   const selectedValue = value ?? internalValue;
@@ -73,9 +72,16 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({
     setIsOpen(false);
   };
 
+  const iconFilter = useMemo(() => {
+    return isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
+  }, [isDark]);
+
+  const activeBorderColor = isOpen
+    ? colors['colors_input_select-border']
+    : colors['colors_select_border'];
+
   return (
     <>
-      {/* Overlay invisible pour fermer le select au clic à l'extérieur */}
       {isOpen ? (
         <Pressable
           style={styles.backdrop}
@@ -92,19 +98,36 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({
             variant === 'boxed' && [
               styles.boxed,
               {
-                backgroundColor: theme['colors_select_bg'],
-                borderColor: theme['colors_select_border'],
+                backgroundColor: colors['colors_select_bg'],
+                borderColor: activeBorderColor,
+                borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                borderWidth: primitives['border width_border-thin'] ?? 1,
+                paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
               },
             ],
             variant === 'compact' && [
               styles.compact,
               {
-                backgroundColor: theme['colors_select_bg'],
-                borderColor: theme['colors_select_border'],
+                backgroundColor: colors['colors_select_bg'],
+                borderColor: activeBorderColor,
+                borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                borderWidth: primitives['border width_border-thin'] ?? 1,
+                paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
               },
             ],
-            variant === 'ghost' && styles.ghost,
-            pressed && styles.pressed,
+            variant === 'ghost' && [
+              styles.ghost,
+              {
+                borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
+                backgroundColor: pressed || isOpen ? colors['colors_bg_primary'] : 'transparent',
+              },
+            ],
+            pressed && {
+              backgroundColor:
+                variant === 'ghost'
+                  ? colors['colors_bg_primary']
+                  : colors['colors_button_ghost'],
+            },
             disabled && styles.disabled,
             style,
           ]}
@@ -113,8 +136,18 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({
           <Text
             style={[
               styles.label,
-              variant === 'compact' && styles.labelCompact,
-              { color: theme['colors_select_text'] },
+              {
+                color: colors['colors_select_text'],
+                fontSize: primitives['typography_font size_font-size-16'] ?? 16,
+                lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
+              },
+              variant === 'compact' && [
+                styles.labelCompact,
+                {
+                  fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                  lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+                },
+              ],
             ]}
             numberOfLines={1}
           >
@@ -125,7 +158,11 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({
             width={16}
             height={16}
             alt=""
-            style={{ transform: `rotate(${rotation})` }}
+            style={{
+              transform: `rotate(${rotation})`,
+              filter: iconFilter,
+              opacity: isDark ? 0.85 : 0.65,
+            }}
           />
         </Pressable>
 
@@ -134,8 +171,20 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({
             style={[
               styles.options,
               {
-                backgroundColor: theme['colors_select_bg'],
-                borderColor: theme['colors_select_border'],
+                backgroundColor: colors['colors_bg_secondary'],
+                borderColor: colors['colors_divider_text'],
+                borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                borderWidth: primitives['border width_border-thin'] ?? 1,
+                ...Platform.select({
+                  web: {
+                    boxShadow: isDark
+                      ? '0 8px 24px rgba(0, 0, 0, 0.5)'
+                      : '0 8px 24px rgba(0, 0, 0, 0.12)',
+                  } as any,
+                  default: {
+                    elevation: 8,
+                  },
+                }),
               },
             ]}
           >
@@ -148,13 +197,29 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({
                   onPress={() => handleOptionPress(option)}
                   style={({ pressed }) => [
                     styles.option,
-                    isSelected && {
-                      backgroundColor: theme['colors_bg_primary'],
+                    {
+                      paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+                      backgroundColor: isSelected
+                        ? colors['colors_bg_primary']
+                        : pressed
+                        ? colors['colors_button_ghost']
+                        : 'transparent',
                     },
-                    pressed && styles.pressed,
                   ]}
                 >
-                  <Text style={[styles.optionLabel, { color: theme['colors_select_text'] }]}>
+                  <Text
+                    style={[
+                      styles.optionLabel,
+                      {
+                        color: isSelected
+                          ? colors['colors_badge_primary-action-bg']
+                          : colors['colors_text_primary'],
+                        fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                        lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+                        fontWeight: isSelected ? '700' : '400',
+                      },
+                    ]}
+                  >
                     {option.label}
                   </Text>
                 </Pressable>
@@ -181,7 +246,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   wrapperOpen: {
-    zIndex: 9999, // Passe au premier plan absolu dès qu'il s'ouvre
+    zIndex: 9999,
   },
   base: {
     flexDirection: 'row',
@@ -190,27 +255,18 @@ const styles = StyleSheet.create({
   },
   boxed: {
     height: 52,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
     minWidth: 160,
   },
   compact: {
     height: 40,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
     alignSelf: 'flex-start',
     gap: 8,
   },
   ghost: {
     paddingVertical: 6,
-    paddingHorizontal: 0,
+    paddingHorizontal: 8,
     alignSelf: 'flex-start',
     gap: 8,
-  },
-  pressed: {
-    opacity: 0.7,
   },
   disabled: {
     opacity: 0.4,
@@ -222,35 +278,19 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10000,
     marginTop: 4,
-    borderWidth: 1,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
     overflow: 'hidden',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-      } as any,
-      default: {
-        elevation: 8,
-      },
-    }),
   },
   option: {
     minHeight: 40,
     justifyContent: 'center',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
   },
-  optionLabel: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
-  },
+  optionLabel: {},
   label: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-    lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
     fontWeight: '500',
   },
   labelCompact: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '500',
   },
 });
+
+export default SelectTrigger;

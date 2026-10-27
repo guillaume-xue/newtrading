@@ -1,22 +1,18 @@
-// components/AppFooter.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+// components/layout/AppFooter.tsx
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
 } from 'react-native';
 import Image from 'next/image';
 
 import LogoSvg from '@/assets/icons/Logo.svg';
-
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface FooterLink {
   label: string;
@@ -88,62 +84,103 @@ export const AppFooter: React.FC<AppFooterProps> = ({
   style,
 }) => {
   const [mounted, setMounted] = useState(false);
-  const scheme = useColorScheme();
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Détermination du thème : utilise lightColors par défaut lors du SSR pour correspondre au serveur
-  const isDark = mounted && scheme === 'dark';
-  const theme = isDark ? darkColors : lightColors;
+  const borderColor = colors['colors_divider_text'];
+  const textPrimary = colors['colors_text_primary'];
+  const textMuted = colors['colors_text_secondary'];
 
-  const borderColor = theme['colors_divider_text'] ?? '#D1D5DB';
-  const textPrimary = theme['colors_text_primary'] ?? '#0B0F19';
-  const textMuted = theme['colors_text_secondary'] ?? '#9CA3AF';
+  const logoFilter = useMemo(() => {
+    return isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
+  }, [isDark]);
 
   return (
     <View
       style={[
         styles.footer,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
+          backgroundColor: colors['colors_bg_secondary'],
           borderTopColor: borderColor,
+          borderTopWidth: primitives['border width_border-thin'] ?? 1,
+          padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
         },
         style,
       ]}
     >
-      <View style={styles.innerContainer}>
+      <View
+        style={[
+          styles.innerContainer,
+          {
+            gap: primitives['spacing & layout_padding & margin_space-8'] ?? 24,
+          },
+        ]}
+      >
         {/* 1. Étage Supérieur : Marque + 4 Colonnes de liens */}
         <View style={styles.topSection}>
           {/* Colonne Marque */}
           <View style={styles.brandColumn}>
             <View style={styles.logoRow}>
-              <Image src={LogoSvg} width={30} height={30} alt="NewTrading" />
-              <Text style={[styles.brandTitle, { color: textPrimary }]}>
+              <Image
+                src={LogoSvg}
+                width={30}
+                height={30}
+                alt="NewTrading"
+                style={{ filter: logoFilter }}
+              />
+              <Text
+                style={[
+                  styles.brandTitle,
+                  {
+                    color: textPrimary,
+                    fontSize: primitives['typography_font size_font-size-18'] ?? 18,
+                  },
+                ]}
+              >
                 NewTrading
               </Text>
             </View>
 
-            {/* Réseaux sociaux placeholder */}
-            <View style={styles.socialRow}>
-              <Text style={[styles.socialIcon, { color: textPrimary }]}>􀉣</Text>
-              <Text style={[styles.socialIcon, { color: textPrimary }]}>􀌀</Text>
-              <Text style={[styles.socialIcon, { color: textPrimary }]}>􀋭</Text>
-            </View>
-
-            <Text style={[styles.brandDescription, { color: textMuted }]}>
+            <Text
+              style={[
+                styles.brandDescription,
+                {
+                  color: textMuted,
+                  fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                },
+              ]}
+            >
               Plateforme d’analyse graphique avancée et de simulation boursière en temps réel.
             </Text>
 
-            <Text style={[styles.statusLine, { color: textMuted }]}>
+            <Text
+              style={[
+                styles.statusLine,
+                {
+                  color: textMuted,
+                  fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                },
+              ]}
+            >
               Statut des serveurs :{' '}
               <Text style={{ color: textPrimary, fontWeight: '600' }}>
                 Tous les systèmes opérationnels
               </Text>
             </Text>
 
-            <Text style={[styles.versionText, { color: textMuted }]}>
+            <Text
+              style={[
+                styles.versionText,
+                {
+                  color: textMuted,
+                  fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                },
+              ]}
+            >
               Version : {version}
             </Text>
           </View>
@@ -152,10 +189,26 @@ export const AppFooter: React.FC<AppFooterProps> = ({
           <View style={styles.columnsContainer}>
             {FOOTER_COLUMNS.map((col, idx) => (
               <View key={idx} style={styles.linkColumn}>
-                <Text style={[styles.columnTitle, { color: textPrimary }]}>
+                <Text
+                  style={[
+                    styles.columnTitle,
+                    {
+                      color: textPrimary,
+                      fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                    },
+                  ]}
+                >
                   {col.title}
                 </Text>
-                <Text style={[styles.categorySubtitle, { color: textMuted }]}>
+                <Text
+                  style={[
+                    styles.categorySubtitle,
+                    {
+                      color: textMuted,
+                      fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                    },
+                  ]}
+                >
                   {col.category}
                 </Text>
                 <View style={styles.linksList}>
@@ -165,7 +218,15 @@ export const AppFooter: React.FC<AppFooterProps> = ({
                       onPress={link.onPress}
                       style={styles.linkPressable}
                     >
-                      <Text style={[styles.linkText, { color: textMuted }]}>
+                      <Text
+                        style={[
+                          styles.linkText,
+                          {
+                            color: textMuted,
+                            fontSize: primitives['typography_font size_font-size-13'] ?? 13,
+                          },
+                        ]}
+                      >
                         {link.label}
                       </Text>
                     </Pressable>
@@ -177,40 +238,96 @@ export const AppFooter: React.FC<AppFooterProps> = ({
         </View>
 
         {/* 2. Étage Médian : Avertissement sur les risques */}
-        <View style={[styles.disclaimerSection, { borderTopColor: borderColor }]}>
-          <Text style={[styles.disclaimerText, { color: textMuted }]}>
-            Avertissement sur les risques : Les informations et outils fournis sur NewTrading sont exclusivement destinés à des fins pédagogiques et de simulation (Paper Trading). Les transactions virtuelles n’impliquent aucun capital réel et ne constituent en aucun cas des conseils en investissement financier. Les performances passées simulées ne préjugent pas des résultats futurs sur les marchés réels.
+        <View
+          style={[
+            styles.disclaimerSection,
+            {
+              borderTopColor: borderColor,
+              borderTopWidth: primitives['border width_border-thin'] ?? 1,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.disclaimerText,
+              {
+                color: textMuted,
+                fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+              },
+            ]}
+          >
+            Avertissement sur les risques : Les informations et outils fournis sur NewTrading sont exclusivement destinés à des fins pédagogiques et de simulation (Paper Trading). Les transactions virtuelles n’impliquent aucun capital réel et ne constituent en aucun cas des conseils en investissement financier[span_4](start_span)[span_4](end_span). Les performances passées simulées ne préjugent pas des résultats futurs sur les marchés réels[span_5](start_span)[span_5](end_span).
           </Text>
         </View>
 
         {/* 3. Étage Inférieur : Copyright & Métadonnées */}
-        <View style={[styles.bottomSection, { borderTopColor: borderColor }]}>
-          <Text style={[styles.copyrightText, { color: textMuted }]}>
+        <View
+          style={[
+            styles.bottomSection,
+            {
+              borderTopColor: borderColor,
+              borderTopWidth: primitives['border width_border-thin'] ?? 1,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.copyrightText,
+              {
+                color: textMuted,
+                fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+              },
+            ]}
+          >
             © 2026 NewTrading Inc. Tous droits réservés.
           </Text>
 
           <View style={styles.metaRow}>
-            <Text style={[styles.metaText, { color: textMuted }]}>
+            <Text
+              style={[
+                styles.metaText,
+                {
+                  color: textMuted,
+                  fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                },
+              ]}
+            >
               Langue :{' '}
               <Text style={{ color: textPrimary, fontWeight: '500' }}>
                 Français (FR)
               </Text>
             </Text>
             <Text style={[styles.metaSeparator, { color: textMuted }]}>|</Text>
-            <Text style={[styles.metaText, { color: textMuted }]}>
+            <Text
+              style={[
+                styles.metaText,
+                {
+                  color: textMuted,
+                  fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                },
+              ]}
+            >
               Fuseau :{' '}
               <Text style={{ color: textPrimary, fontWeight: '500' }}>
                 UTC+2 (Paris)
               </Text>
             </Text>
             <Text style={[styles.metaSeparator, { color: textMuted }]}>|</Text>
-            <Text style={[styles.metaText, { color: textMuted }]}>
+            <Text
+              style={[
+                styles.metaText,
+                {
+                  color: textMuted,
+                  fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                },
+              ]}
+            >
               Thème :{' '}
               <Text
                 suppressHydrationWarning
                 style={{ color: textPrimary, fontWeight: '500' }}
               >
-                {mounted ? (scheme === 'dark' ? 'Sombre' : 'Clair') : 'Clair'}
+                {mounted ? (isDark ? 'Sombre' : 'Clair') : 'Sombre'}
               </Text>
             </Text>
           </View>
@@ -223,12 +340,10 @@ export const AppFooter: React.FC<AppFooterProps> = ({
 const styles = StyleSheet.create({
   footer: {
     width: '100%',
-    padding: primitives['spacing & layout_padding & margin_space-16'] ?? 64,
   },
   innerContainer: {
     width: '100%',
     marginHorizontal: 'auto',
-    gap: primitives['spacing & layout_padding & margin_space-8'] ?? 24,
   },
   topSection: {
     flexDirection: 'row',
@@ -246,30 +361,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   brandTitle: {
-    fontSize: primitives['typography_font size_font-size-18'] ?? 18,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
-  socialRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginVertical: 4,
-  },
-  socialIcon: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-    fontWeight: '700',
-  },
   brandDescription: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     lineHeight: 18,
   },
   statusLine: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     lineHeight: 18,
   },
   versionText: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -286,12 +387,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   columnTitle: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   categorySubtitle: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
     fontWeight: '700',
     letterSpacing: 0.2,
     marginBottom: 4,
@@ -303,19 +402,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   linkText: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   disclaimerSection: {
-    borderTopWidth: primitives['border width_border-thin'] ?? 1,
     paddingTop: 16,
   },
   disclaimerText: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   bottomSection: {
-    borderTopWidth: primitives['border width_border-thin'] ?? 1,
     paddingTop: 16,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -323,19 +418,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  copyrightText: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-  },
+  copyrightText: {},
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  metaText: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-  },
+  metaText: {},
   metaSeparator: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
     opacity: 0.5,
   },
 });
+
+export default AppFooter;

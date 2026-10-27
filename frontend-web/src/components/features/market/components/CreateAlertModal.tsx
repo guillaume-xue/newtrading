@@ -1,5 +1,6 @@
 'use client';
 
+// src/components/features/market/components/CreateAlertModal.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
 
 import { InputField } from '@/components/ui/InputField';
@@ -15,9 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { SelectTrigger } from '@/components/ui/SelectTrigger';
 
 import { alertApi, CreateAlertPayload } from '@/lib/api/alertApi';
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface CreateAlertModalProps {
   isOpen: boolean;
@@ -34,8 +32,8 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
   currentPrice,
   onAlertCreated,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   const [targetPrice, setTargetPrice] = useState<string>(
     currentPrice !== undefined ? String(currentPrice) : ''
@@ -99,8 +97,11 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
           style={[
             styles.modalContainer,
             {
-              backgroundColor: theme['colors_bg_secondary'] ?? '#1E222D',
-              borderColor: theme['colors_select_border'] ?? '#2A2E39',
+              backgroundColor: colors['colors_bg_secondary'],
+              borderColor: colors['colors_divider_text'],
+              borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 12,
+              borderWidth: primitives['border width_border-thin'] ?? 1,
+              padding: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
             },
           ]}
         >
@@ -108,7 +109,12 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
           <Text
             style={[
               styles.title,
-              { color: theme['colors_input_primary-text'] ?? '#FFFFFF' },
+              {
+                color: colors['colors_text_primary'],
+                fontSize: primitives['typography_font size_font-size-16'] ?? 18,
+                lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
+                marginBottom: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+              },
             ]}
           >
             Nouvelle alerte — {assetCode}
@@ -119,17 +125,23 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
               style={[
                 styles.errorBanner,
                 {
-                  backgroundColor: theme['colors_input_warning-border']
-                    ? `${theme['colors_input_warning-border']}20`
-                    : '#EF535020',
-                  borderColor: theme['colors_input_warning-border'] ?? '#EF5350',
+                  backgroundColor: colors['colors_badge_down-bg'],
+                  borderColor: colors['colors_badge_down-border'],
+                  borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+                  borderWidth: primitives['border width_border-thin'] ?? 1,
+                  padding: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+                  marginBottom: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
                 },
               ]}
             >
               <Text
                 style={[
                   styles.errorText,
-                  { color: theme['colors_input_warning-text'] ?? '#EF5350' },
+                  {
+                    color: colors['colors_badge_down-text'],
+                    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+                  },
                 ]}
               >
                 {errorMessage}
@@ -141,12 +153,25 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
           <Text
             style={[
               styles.sectionLabel,
-              { color: theme['colors_input_secondary-text'] ?? '#787B86' },
+              {
+                color: colors['colors_text_secondary'],
+                fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+                marginBottom: primitives['spacing & layout_padding & margin_space-2'] ?? 6,
+              },
             ]}
           >
             Condition de déclenchement
           </Text>
-          <View style={styles.conditionRow}>
+          <View
+            style={[
+              styles.conditionRow,
+              {
+                gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+                marginBottom: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+              },
+            ]}
+          >
             <View style={styles.conditionButton}>
               <Button
                 label="Prix ≥ Seuil"
@@ -179,7 +204,12 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
           <Text
             style={[
               styles.sectionLabel,
-              { color: theme['colors_input_secondary-text'] ?? '#787B86' },
+              {
+                color: colors['colors_text_secondary'],
+                fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+                marginBottom: primitives['spacing & layout_padding & margin_space-2'] ?? 6,
+              },
             ]}
           >
             Canal de notification
@@ -189,11 +219,19 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
             variant="boxed"
             direction="down"
             onPress={cycleChannel}
-            style={styles.selectTrigger}
+            style={[
+              styles.selectTrigger,
+              { marginBottom: primitives['spacing & layout_padding & margin_space-6'] ?? 24 },
+            ]}
           />
 
           {/* Actions */}
-          <View style={styles.actionsRow}>
+          <View
+            style={[
+              styles.actionsRow,
+              { gap: primitives['spacing & layout_padding & margin_space-3'] ?? 12 },
+            ]}
+          >
             <View style={styles.actionButton}>
               <Button
                 label="Annuler"
@@ -225,7 +263,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+    padding: 16,
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
@@ -233,52 +271,35 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: '100%',
     maxWidth: 420,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 12,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
-    padding: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
     zIndex: 10,
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
   },
   title: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 18,
-    lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
     fontWeight: '700',
-    marginBottom: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
   },
   sectionLabel: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
     fontWeight: '500',
-    marginBottom: primitives['spacing & layout_padding & margin_space-2'] ?? 6,
   },
   conditionRow: {
     flexDirection: 'row',
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
-    marginBottom: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
   },
   conditionButton: {
     flex: 1,
   },
   selectTrigger: {
     width: '100%',
-    marginBottom: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
   },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
   },
   actionButton: {
     minWidth: 100,
   },
-  errorBanner: {
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
-    padding: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
-    marginBottom: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-  },
+  errorBanner: {},
   errorText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
     fontWeight: '500',
   },
 });
+
+export default CreateAlertModal;

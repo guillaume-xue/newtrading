@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+// src/components/features/market/components/ChartToolbar.tsx
+import React, { useMemo, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,6 +18,8 @@ import textIcon from '@/assets/icons/text 1.svg';
 import polygonIcon from '@/assets/icons/draw-polygon 2.svg';
 import fibonaciLineIcon from '@/assets/icons/fibonaci.svg';
 import lineIcon from '@/assets/icons/line.svg';
+
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export type ChartTool = 'crosshair' | 'line' | 'trendline' | 'text' | 'shape' | 'fibo';
 
@@ -35,13 +38,15 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
   initialY = 16,
   bounds,
 }) => {
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
+
   const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
   const currentPos = useRef({ x: initialX, y: initialY });
   const startDragPos = useRef({ x: initialX, y: initialY });
   const toolbarSize = useRef({ width: 42, height: 260 });
   const isDragging = useRef(false);
 
-  // Sécurité Web : si la souris est relâchée hors de l'écran, réinitialiser l'état
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       if (isDragging.current) {
@@ -116,6 +121,10 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
     { id: 'fibo', icon: fibonaciLineIcon, label: 'Fibonacci' },
   ];
 
+  const iconFilter = isDark
+    ? 'brightness(0) invert(1) opacity(0.85)'
+    : 'brightness(0) opacity(0.75)';
+
   return (
     <Animated.View
       onLayout={handleLayout}
@@ -124,34 +133,44 @@ export const ChartToolbar: React.FC<ChartToolbarProps> = ({
         styles.draggableContainer,
         {
           transform: pan.getTranslateTransform(),
+          backgroundColor: colors['colors_bg_secondary'],
+          borderColor: colors['colors_divider_text'],
+          borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+          borderWidth: primitives['border width_border-thin'] ?? 1,
         },
       ]}
     >
       <View style={styles.dragHandle}>
-        <View style={styles.dragDot} />
-        <View style={styles.dragDot} />
+        <View style={[styles.dragDot, { backgroundColor: colors['colors_text_secondary'] }]} />
+        <View style={[styles.dragDot, { backgroundColor: colors['colors_text_secondary'] }]} />
       </View>
 
-      {tools.map((tool) => (
-        <TouchableOpacity
-          key={tool.id}
-          style={[
-            styles.toolBtn,
-            activeTool === tool.id && styles.activeBtn,
-          ]}
-          onPress={() => onSelectTool(tool.id)}
-          accessibilityLabel={tool.label}
-          activeOpacity={0.7}
-        >
-          <Image
-            src={tool.icon}
-            alt={tool.label}
-            width={18}
-            height={18}
-            style={{ filter: 'brightness(0) opacity(0.8)' }}
-          />
-        </TouchableOpacity>
-      ))}
+      {tools.map((tool) => {
+        const isActive = activeTool === tool.id;
+        return (
+          <TouchableOpacity
+            key={tool.id}
+            style={[
+              styles.toolBtn,
+              {
+                borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 6,
+                backgroundColor: isActive ? colors['colors_bg_primary'] : 'transparent',
+              },
+            ]}
+            onPress={() => onSelectTool(tool.id)}
+            accessibilityLabel={tool.label}
+            activeOpacity={0.7}
+          >
+            <Image
+              src={tool.icon}
+              alt={tool.label}
+              width={18}
+              height={18}
+              style={{ filter: iconFilter }}
+            />
+          </TouchableOpacity>
+        );
+      })}
     </Animated.View>
   );
 };
@@ -165,13 +184,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFFFFF',
     paddingVertical: 6,
     paddingHorizontal: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
   },
   dragHandle: {
     width: '100%',
@@ -186,17 +201,12 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#9CA3AF',
   },
   toolBtn: {
     width: 32,
     height: 32,
-    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  activeBtn: {
-    backgroundColor: '#E5E7EB',
   },
 });
 

@@ -22,12 +22,11 @@ public class MarketDataCacheService {
     private final StockApiClient stockApiClient;
 
     @Cacheable(value = "stockHistory", key = "#symbol.toUpperCase()", sync = true)
-        public List<CandleDto> getDailyHistory(String symbol) {
+    public List<CandleDto> getDailyHistory(String symbol) {
         try {
-            // Tentative d'appel externe normal via le cache
             return stockApiClient.fetchDailyHistory(symbol);
         } catch (Exception e) {
-            log.warn("API de marché indisponible ou quota dépassé (429). Utilisation du jeu de données synthétique pour {}", symbol);
+            log.warn("API de marché indisponible...", symbol);
             return generateMockHistory(symbol);
         }
     }

@@ -1,21 +1,19 @@
-// src/components/SearchBar.tsx
-import React, { useState, useRef } from 'react';
+'use client';
+
+import React, { useState, useRef, useMemo } from 'react';
 import {
   TextInput,
   Pressable,
   StyleSheet,
   TextInputProps,
   ViewStyle,
-  useColorScheme,
   Platform,
 } from 'react-native';
 import Image from 'next/image';
 
 import Search from '@/assets/icons/search.svg';
-
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
-import { primitives } from '@/theme/generated/primitives';
+import CrossIcon from '@/assets/icons/cross.svg';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export type SearchBarSize = 'sm' | 'md';
 
@@ -31,20 +29,25 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onChangeText,
   size = 'md',
   placeholder = 'Rechercher...',
-  showClearIcon = false, // Désactivé par défaut si rien n'est tapé
+  showClearIcon = true,
   onClear,
   style,
   onFocus,
   onBlur,
   ...props
 }) => {
-  const [, setIsFocused] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
-  const borderColor = theme['colors_select_border'] ?? '#D1D4DC';
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
 
+  const borderColor = useMemo(() => {
+    if (isFocused) return colors['colors_input_select-border'];
+    return colors['colors_select_border'];
+  }, [isFocused, colors]);
+
+  const iconFilter = isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
   const shouldDisplayClear = showClearIcon && Boolean(value && value.length > 0);
 
   return (
@@ -54,24 +57,36 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         styles.container,
         styles[size],
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderColor: borderColor,
+          backgroundColor: colors['colors_bg_secondary'],
+          borderColor,
+          borderRadius: primitives['spacing & layout_border radius_radius-full'] ?? 9999,
+          borderWidth: primitives['border width_border-thin'] ?? 1,
         },
         style,
       ]}
     >
-      {size === 'md' && (<Image src={Search} width={16} height={16} alt="" style={{ marginRight: 8 }} />) }
-      {size === 'sm' && (<Image src={Search} width={12} height={12} alt="" style={{ marginRight: 4 }} />) }
+      <Image
+        src={Search}
+        width={size === 'md' ? 16 : 12}
+        height={size === 'md' ? 16 : 12}
+        alt=""
+        style={{
+          marginRight: size === 'md' ? 8 : 4,
+          filter: iconFilter,
+          opacity: 0.7,
+        }}
+      />
+
       <TextInput
         ref={inputRef}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme['colors_input_secondary-text'] ?? '#8C93A3'}
+        placeholderTextColor={colors['colors_input_secondary-text']}
         style={[
           styles.input,
           styles[`input_${size}`],
-          { color: theme['colors_input_primary-text'] ?? '#131722' },
+          { color: colors['colors_input_primary-text'] },
         ]}
         onFocus={(e) => {
           setIsFocused(true);
@@ -91,41 +106,40 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onClear?.();
           }}
           hitSlop={8}
+          style={styles.clearButton}
         >
+          <Image
+            src={CrossIcon}
+            width={12}
+            height={12}
+            alt="Effacer"
+            style={{ filter: iconFilter, opacity: 0.6 }}
+          />
         </Pressable>
       )}
     </Pressable>
   );
 };
 
-
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: primitives['spacing & layout_border radius_radius-full'] ?? 9999,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
     width: '100%',
     overflow: 'hidden',
   },
   md: {
-    height: 32,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+    height: 34,
+    paddingHorizontal: 10,
   },
   sm: {
-    height: 24,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
-  },
-  leftIconContainer: {
-    marginRight: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: 26,
+    paddingHorizontal: 8,
   },
   input: {
     flex: 1,
     height: '100%',
-    padding: 1,
+    padding: 0,
     margin: 0,
     ...Platform.select({
       web: {
@@ -134,13 +148,18 @@ const styles = StyleSheet.create({
     }),
   },
   input_md: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-    lineHeight: primitives['typography_line height_line-height-32'] ?? 32,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '500',
   },
   input_sm: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 16,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500',
+  },
+  clearButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

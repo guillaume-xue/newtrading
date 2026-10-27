@@ -1,9 +1,11 @@
 'use client';
 
+// components/features/market/components/ChartDrawingOverlay.tsx
 import React, { useRef, useEffect } from 'react';
 import { MarketDrawing, BaseDrawingPoint } from '@/types/drawing';
 import { ChartTool } from '@/components/features/market/components/ChartToolbar';
 import { FIBO_LEVELS, createSmoothSvgPath } from '@/utils/chartPath';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface ChartDrawingOverlayProps {
   isDrawingActive: boolean;
@@ -34,6 +36,9 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
   onCommitInlineText,
   onCancelInlineText,
 }) => {
+  const { theme } = useAppTheme();
+  const { colors, isDark } = theme;
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,6 +46,12 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
       setTimeout(() => inputRef.current?.focus(), 20);
     }
   }, [inlineEditor]);
+
+  const primaryStroke = colors['colors_badge_primary-action-bg'];
+  const textColor = colors['colors_text_primary'];
+  const textMuted = colors['colors_text_secondary'];
+  const fiboStroke = isDark ? '#A78BFA' : '#8B5CF6';
+  const fiboDraftStroke = isDark ? '#7C3AED' : '#C4B5FD';
 
   const renderFibo = (c1: { x: number; y: number }, c2: { x: number; y: number }, key: string, isDraft = false) => {
     const height = c2.y - c1.y;
@@ -58,11 +69,11 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
                 y1={currentY}
                 x2={maxX}
                 y2={currentY}
-                stroke={isDraft ? '#C4B5FD' : '#8B5CF6'}
+                stroke={isDraft ? fiboDraftStroke : fiboStroke}
                 strokeWidth={1}
                 strokeDasharray={level === 0 || level === 1 ? undefined : '3 3'}
               />
-              <text x={maxX + 4} y={currentY + 3} fill="#8B5CF6" fontSize={10}>
+              <text x={maxX + 4} y={currentY + 3} fill={isDraft ? fiboDraftStroke : fiboStroke} fontSize={10}>
                 {level}
               </text>
             </g>
@@ -91,7 +102,7 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
             const c1 = getScreenCoordinates(d.p1);
             const c2 = getScreenCoordinates(d.p2);
             if (!c1 || !c2) return null;
-            return <line key={d.id} x1={c1.x} y1={c1.y} x2={c2.x} y2={c2.y} stroke="#2563EB" strokeWidth={2} />;
+            return <line key={d.id} x1={c1.x} y1={c1.y} x2={c2.x} y2={c2.y} stroke={primaryStroke} strokeWidth={2} />;
           }
 
           if (d.type === 'trendline') {
@@ -103,7 +114,7 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
                 key={d.id}
                 d={createSmoothSvgPath(screenPoints)}
                 fill="none"
-                stroke="#7C3AED"
+                stroke={fiboStroke}
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -122,8 +133,8 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
                 y={Math.min(c1.y, c2.y)}
                 width={Math.abs(c2.x - c1.x)}
                 height={Math.abs(c2.y - c1.y)}
-                fill="rgba(37, 99, 235, 0.12)"
-                stroke="#2563EB"
+                fill={isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(37, 99, 235, 0.12)'}
+                stroke={primaryStroke}
                 strokeWidth={1.5}
               />
             );
@@ -133,7 +144,7 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
             const c = getScreenCoordinates(d.point);
             if (!c) return null;
             return (
-              <text key={d.id} x={c.x} y={c.y} fill="#0F172A" fontSize={13} fontWeight="600" style={{ userSelect: 'none' }}>
+              <text key={d.id} x={c.x} y={c.y} fill={textColor} fontSize={13} fontWeight="600" style={{ userSelect: 'none' }}>
                 {d.text}
               </text>
             );
@@ -149,11 +160,11 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
           return null;
         })}
 
-        {/* Tracé en direct sans re-render */}
+        {/* Tracé en direct */}
         <path
           ref={livePencilPathRef as React.RefObject<SVGPathElement>}
           fill="none"
-          stroke="#8B5CF6"
+          stroke={fiboStroke}
           strokeWidth={2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -165,7 +176,7 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
             y1={currentScreenDraft.y1}
             x2={currentScreenDraft.x2}
             y2={currentScreenDraft.y2}
-            stroke="#60A5FA"
+            stroke={isDark ? '#93C5FD' : '#60A5FA'}
             strokeWidth={2}
             strokeDasharray="4 4"
           />
@@ -177,8 +188,8 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
             y={Math.min(currentScreenDraft.y1, currentScreenDraft.y2)}
             width={Math.abs(currentScreenDraft.x2 - currentScreenDraft.x1)}
             height={Math.abs(currentScreenDraft.y2 - currentScreenDraft.y1)}
-            fill="rgba(96, 165, 250, 0.2)"
-            stroke="#60A5FA"
+            fill={isDark ? 'rgba(147, 197, 253, 0.25)' : 'rgba(96, 165, 250, 0.2)'}
+            stroke={isDark ? '#93C5FD' : '#60A5FA'}
             strokeDasharray="4 4"
           />
         )}
@@ -192,7 +203,7 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
           )}
       </svg>
 
-      {/* Boîte d'édition textuelle */}
+      {/* Éditeur textuel en ligne */}
       {inlineEditor && (
         <div
           style={{
@@ -221,15 +232,17 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
             }}
             onBlur={onCommitInlineText}
             style={{
-              backgroundColor: '#FFFFFF',
-              border: '1.5px solid #2563EB',
+              backgroundColor: colors['colors_bg_secondary'],
+              border: `1.5px solid ${primaryStroke}`,
               borderRadius: 4,
               padding: '4px 8px',
               fontSize: 13,
               fontWeight: 600,
-              color: '#0F172A',
+              color: textColor,
               outline: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              boxShadow: isDark
+                ? '0 4px 12px rgba(0, 0, 0, 0.5)'
+                : '0 4px 12px rgba(0, 0, 0, 0.15)',
               minWidth: 140,
             }}
           />
@@ -238,3 +251,5 @@ export const ChartDrawingOverlay: React.FC<ChartDrawingOverlayProps> = ({
     </div>
   );
 };
+
+export default ChartDrawingOverlay;
