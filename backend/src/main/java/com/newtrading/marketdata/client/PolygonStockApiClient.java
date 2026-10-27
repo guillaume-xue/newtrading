@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.newtrading.marketdata.dto.CandleDto;
 import com.newtrading.marketdata.dto.QuoteDto;
 import com.newtrading.shared.exception.BusinessException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
@@ -22,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Component
 @ConditionalOnProperty(name = "application.marketdata.provider", havingValue = "polygon")
 public class PolygonStockApiClient implements StockApiClient {
@@ -46,15 +51,16 @@ public class PolygonStockApiClient implements StockApiClient {
                 .requestFactory(factory)
                 .defaultStatusHandler(HttpStatusCode::is4xxClientError, (request, response) -> {
                     if (response.getStatusCode().value() == 429) {
-                        throw new BusinessException("Limite de requêtes Polygon atteinte (Rate Limit 5 req/min)", HttpStatus.TOO_MANY_REQUESTS);
+                        throw new BusinessException("Quota externe Polygon dépassé", HttpStatus.TOO_MANY_REQUESTS);
                     }
                     if (response.getStatusCode().value() == 401 || response.getStatusCode().value() == 403) {
-                        throw new BusinessException("Clé API Polygon invalide ou non autorisée", HttpStatus.UNAUTHORIZED);
+                        throw new BusinessException("Clé API Polygon invalide ou expirée", HttpStatus.UNAUTHORIZED);
                     }
-                    throw new BusinessException("Erreur client Polygon : " + response.getStatusCode(), HttpStatus.valueOf(response.getStatusCode().value()));
+                    throw new BusinessException("Erreur client Polygon : " + response.getStatusCode(),
+                            HttpStatus.valueOf(response.getStatusCode().value()));
                 })
                 .defaultStatusHandler(HttpStatusCode::is5xxServerError, (request, response) -> {
-                    throw new BusinessException("Serveur Polygon indisponible", HttpStatus.BAD_GATEWAY);
+                    throw new BusinessException("Serveur Polygon distant indisponible", HttpStatus.BAD_GATEWAY);
                 })
                 .build();
         this.apiKey = apiKey;
@@ -62,16 +68,18 @@ public class PolygonStockApiClient implements StockApiClient {
     }
 
     @Override
+    @RateLimiter(name = "polygonApi", fallbackMethod = "fetchDailyHistoryFallback")
+    @CircuitBreaker(name = "polygonApi", fallbackMethod = "fetchDailyHistoryFallback")
     public List<CandleDto> fetchDailyHistory(String symbol) {
         String cleanSymbol = symbol.toUpperCase();
-
-        // Utilisation d'une date de fin arrêtée au dernier jour de bourse clôturé
         LocalDate toDate = LocalDate.now(ZoneOffset.UTC).minusDays(1);
         LocalDate fromDate = toDate.minusYears(2);
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         String fromStr = fromDate.format(formatter);
         String toStr = toDate.format(formatter);
+
+        log.debug("Appel sortant Polygon History pour {}", cleanSymbol);
 
         String response = restClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -88,8 +96,12 @@ public class PolygonStockApiClient implements StockApiClient {
     }
 
     @Override
+    @RateLimiter(name = "polygonApi", fallbackMethod = "fetchQuoteFallback")
+    @CircuitBreaker(name = "polygonApi", fallbackMethod = "fetchQuoteFallback")
     public QuoteDto fetchQuote(String symbol) {
         String cleanSymbol = symbol.toUpperCase();
+
+        log.debug("Appel sortant Polygon Quote pour {}", cleanSymbol);
 
         String response = restClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -102,6 +114,30 @@ public class PolygonStockApiClient implements StockApiClient {
 
         return parsePreviousCloseQuote(response, cleanSymbol);
     }
+
+    // --- Fallbacks Resilience4j ---
+
+    public List<CandleDto> fetchDailyHistoryFallback(String symbol, RequestNotPermitted ex) {
+        log.warn("RateLimiter actif sur Polygon (History) pour {} : requête rejetée en amont", symbol);
+        throw new BusinessException("Serveur surchargé : quota d'appels externes atteint. Veuillez réessayer dans quelques instants.", HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    public List<CandleDto> fetchDailyHistoryFallback(String symbol, Throwable ex) {
+        log.error("CircuitBreaker ou panne réseau sur Polygon (History) pour {} : {}", symbol, ex.getMessage());
+        throw new BusinessException("Service de cotation momentanément indisponible.", HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    public QuoteDto fetchQuoteFallback(String symbol, RequestNotPermitted ex) {
+        log.warn("RateLimiter actif sur Polygon (Quote) pour {} : requête rejetée en amont", symbol);
+        throw new BusinessException("Quota d'appels externes atteint pour la cotation en direct.", HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    public QuoteDto fetchQuoteFallback(String symbol, Throwable ex) {
+        log.error("CircuitBreaker ou panne réseau sur Polygon (Quote) pour {} : {}", symbol, ex.getMessage());
+        throw new BusinessException("Service de cotation momentanément indisponible.", HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    // --- Parsing existant conservé ---
 
     private List<CandleDto> parseCandles(String json, String symbol) {
         try {
