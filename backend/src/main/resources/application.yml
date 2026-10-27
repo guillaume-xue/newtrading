@@ -4,8 +4,6 @@ spring:
     cache-names:
       - stockHistory
       - stockQuote
-    caffeine:
-      spec: maximumSize=500,expireAfterWrite=15m
   jpa:
     open-in-view: false
     hibernate:
