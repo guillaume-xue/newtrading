@@ -41,3 +41,20 @@ application:
     finnhub:
       base-url: https://finnhub.io/api/v1
       api-key: ${FINNHUB_API_KEY:demo}
+
+resilience4j:
+  ratelimiter:
+    instances:
+      polygonApi:
+        limitForPeriod: 5               # Plafond Polygon Free : 5 req
+        limitRefreshPeriod: 60s         # Fenêtre de rafraîchissement : 1 minute
+        timeoutDuration: 5s             # Temps d'attente maximum d'un thread avant rejet
+  circuitbreaker:
+    instances:
+      polygonApi:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50        # Si 50% d'erreurs (5xx/timeouts), ouverture du circuit
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3

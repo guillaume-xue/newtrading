@@ -1,5 +1,7 @@
 package com.newtrading.shared.exception;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,6 +24,30 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
         problem.setTitle("Erreur Métier");
         problem.setType(URI.create("urn:problem-type:business-error"));
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(RequestNotPermitted.class)
+    public ProblemDetail handleRateLimitException(RequestNotPermitted ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Le quota de requêtes vers le fournisseur de données de marché a été atteint. Veuillez patienter quelques instants."
+        );
+        problem.setTitle("Trop de Requêtes");
+        problem.setType(URI.create("urn:problem-type:rate-limit-exceeded"));
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(CallNotPermittedException.class)
+    public ProblemDetail handleCircuitBreakerException(CallNotPermittedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Le service tiers de cotation est temporairement suspendu suite à des erreurs répétées."
+        );
+        problem.setTitle("Service Indisponible");
+        problem.setType(URI.create("urn:problem-type:circuit-breaker-open"));
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
