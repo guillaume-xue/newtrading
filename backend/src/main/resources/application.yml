@@ -44,9 +44,9 @@ resilience4j:
   ratelimiter:
     instances:
       polygonApi:
-        limitForPeriod: 5               # Plafond Polygon Free : 5 req
-        limitRefreshPeriod: 60s         # Fenêtre de rafraîchissement : 1 minute
-        timeoutDuration: 5s             # Temps d'attente maximum d'un thread avant rejet
+        limitForPeriod: 5               # Plafond Polygon Free : 5 req / 60s
+        limitRefreshPeriod: 60s
+        timeoutDuration: 100ms          # Rejet quasi-instantané (100ms max au lieu de 5s) pour ne pas figer Tomcat
   circuitbreaker:
     instances:
       polygonApi:

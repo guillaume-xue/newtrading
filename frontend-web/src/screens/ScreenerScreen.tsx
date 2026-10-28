@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AppFooter } from '@/components/layout/AppFooter';
@@ -12,25 +12,18 @@ import {
   SortField,
   SortOrder,
 } from '@/components/features/market/components/tables/ScreenerTable';
+import { fetchScreenerData } from '@/lib/api/marketApi';
 import { useAppTheme } from '@/theme/ThemeContext';
 
 type AssetCategory = 'TOUT' | 'ACTIONS' | 'CRYPTO' | 'INDICES';
-
 const CATEGORIES: AssetCategory[] = ['TOUT', 'ACTIONS', 'CRYPTO', 'INDICES'];
-
-const INITIAL_SCREENER_DATA: ScreenerItem[] = [
-  { id: '1', name: 'ALLEMAGNE', symbol: 'DAX 40', category: 'INDICES', avgPrice: 743.43, currentPrice: 843.5, quantity: 40.0, unrealizedPnL: 3123.0, pnlPercent: 0.43 },
-  { id: '2', name: 'APPLE INC.', symbol: 'AAPL', category: 'ACTIONS', avgPrice: 175.2, currentPrice: 189.4, quantity: 25.0, unrealizedPnL: 355.0, pnlPercent: 8.1 },
-  { id: '3', name: 'NVIDIA CORP.', symbol: 'NVDA', category: 'ACTIONS', avgPrice: 420.0, currentPrice: 495.2, quantity: 15.0, unrealizedPnL: 1128.0, pnlPercent: 17.9 },
-  { id: '4', name: 'BITCOIN', symbol: 'BTC/USD', category: 'CRYPTO', avgPrice: 61200.0, currentPrice: 63432.5, quantity: 0.5, unrealizedPnL: 1116.25, pnlPercent: 3.64 },
-  { id: '5', name: 'ETHEREUM', symbol: 'ETH/USD', category: 'CRYPTO', avgPrice: 3100.0, currentPrice: 3450.0, quantity: 2.0, unrealizedPnL: 700.0, pnlPercent: 11.29 },
-  { id: '6', name: 'S&P 500', symbol: 'SPX', category: 'INDICES', avgPrice: 5120.0, currentPrice: 5349.1, quantity: 5.0, unrealizedPnL: 1145.5, pnlPercent: 4.47 },
-];
 
 export const ScreenerScreen: React.FC = () => {
   const { theme } = useAppTheme();
   const { colors, primitives } = theme;
 
+  const [screenerData, setScreenerData] = useState<ScreenerItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<AssetCategory>('TOUT');
   const [sortField, setSortField] = useState<SortField>('currentPrice');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -39,6 +32,41 @@ export const ScreenerScreen: React.FC = () => {
   const textSecondary = colors['colors_text_secondary'];
   const bgCard = colors['colors_bg_secondary'];
   const borderCard = colors['colors_divider_text'];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const data = await fetchScreenerData();
+        if (isMounted) {
+          const formattedItems: ScreenerItem[] = data.map((item) => ({
+            id: item.id,
+            name: item.name,
+            symbol: item.symbol,
+            category: item.category as any,
+            currentPrice: item.currentPrice,
+            avgPrice: item.currentPrice,
+            quantity: 0,
+            unrealizedPnL: item.change ?? 0,
+            pnlPercent: item.changePercent ?? 0,
+          }));
+          setScreenerData(formattedItems);
+        }
+      } catch (err) {
+        console.error('Erreur chargement screener :', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadData();
+    const interval = setInterval(loadData, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -50,7 +78,7 @@ export const ScreenerScreen: React.FC = () => {
   };
 
   const filteredAndSortedItems = useMemo(() => {
-    return INITIAL_SCREENER_DATA
+    return screenerData
       .filter((item) => selectedCategory === 'TOUT' || item.category === selectedCategory)
       .sort((a, b) => {
         let comparison = 0;
@@ -61,7 +89,7 @@ export const ScreenerScreen: React.FC = () => {
         }
         return sortOrder === 'asc' ? comparison : -comparison;
       });
-  }, [selectedCategory, sortField, sortOrder]);
+  }, [screenerData, selectedCategory, sortField, sortOrder]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors['colors_bg_primary'] }]}>
@@ -136,12 +164,16 @@ export const ScreenerScreen: React.FC = () => {
             })}
           </View>
 
-          <ScreenerTable
-            items={filteredAndSortedItems}
-            sortField={sortField}
-            sortOrder={sortOrder}
-            onSort={handleSort}
-          />
+          {loading && screenerData.length === 0 ? (
+            <ActivityIndicator size="large" color={colors['colors_button_primary']} />
+          ) : (
+            <ScreenerTable
+              items={filteredAndSortedItems}
+              sortField={sortField}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+          )}
         </View>
       </View>
 

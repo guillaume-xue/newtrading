@@ -1,7 +1,7 @@
 'use client';
 
 // components/features/market/components/TradingChart.tsx
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import {
   createChart,
@@ -54,10 +54,8 @@ export const TradingChart: React.FC<TradingChartProps> = ({
   const { theme } = useAppTheme();
   const { colors, isDark } = theme;
 
-  // Résolution du mode effectif (priorité au context si themeMode n'est pas spécifié)
   const effectiveIsDark = themeMode !== undefined ? themeMode === 'dark' : isDark;
 
-  // Couleurs résolues depuis le design system NewTrading
   const resolvedLineColor = lineColor ?? colors['colors_badge_primary-action-bg'];
   const resolvedTopColor = topColor ?? (effectiveIsDark ? 'rgba(37, 99, 235, 0.35)' : 'rgba(37, 99, 235, 0.2)');
   const resolvedBottomColor = bottomColor ?? 'rgba(37, 99, 235, 0.0)';
@@ -92,7 +90,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     onDrawingsChange,
   });
 
-  // 1. Initialisation & mise à jour du Canvas Lightweight Charts
+  // 1. Initialisation & Canvas
   useEffect(() => {
     if (!chartContainerRef.current) return;
     const container = chartContainerRef.current;
@@ -158,7 +156,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     chartRef.current = chart;
     seriesRef.current = series;
 
-    // Réinjection des données si déjà chargées en mémoire
     if (candlesDataRef.current.length > 0) {
       if (isArea) {
         const areaData = candlesDataRef.current.map((c) => ({ time: c.time, value: c.close }));
@@ -200,7 +197,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     resolvedBottomColor,
   ]);
 
-  // Synchronisation des verrous de navigation lors des tracés
   useEffect(() => {
     if (!chartRef.current) return;
     chartRef.current.applyOptions({
@@ -209,7 +205,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     });
   }, [isDrawingActive, inlineEditor, disableZoom, sparkline]);
 
-  // 2. Récupération des cours historiques
+  // 2. Nettoyage, Dédoublonnage et Tri Chronologique Strict
   useEffect(() => {
     let isMounted = true;
 
@@ -221,15 +217,26 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         const data: CandleModel[] = await fetchMarketHistory(cleanSymbol);
 
         if (Array.isArray(data) && data.length > 0) {
-          candles = data
-            .map((item) => ({
-              time: Math.floor(new Date(item.timestamp).getTime() / 1000) as UTCTimestamp,
-              open: Number(item.open),
-              high: Number(item.high),
-              low: Number(item.low),
-              close: Number(item.close),
-            }))
-            .sort((a, b) => (a.time as number) - (b.time as number));
+          // Utilisation d'une Map indexée par timestamp arrondi à la seconde pour éliminer tout doublon
+          const uniqueCandlesMap = new Map<number, CandlestickData>();
+
+          data.forEach((item) => {
+            const timeInSeconds = Math.floor(new Date(item.timestamp).getTime() / 1000);
+            if (!isNaN(timeInSeconds)) {
+              uniqueCandlesMap.set(timeInSeconds, {
+                time: timeInSeconds as UTCTimestamp,
+                open: Number(item.open),
+                high: Number(item.high),
+                low: Number(item.low),
+                close: Number(item.close),
+              });
+            }
+          });
+
+          // Tri chronologique ascendant obligatoire
+          candles = Array.from(uniqueCandlesMap.values()).sort(
+            (a, b) => (a.time as number) - (b.time as number)
+          );
         }
       } catch (error) {
         console.error(`[API ERROR] Chargement historique pour ${cleanSymbol} :`, error);
@@ -269,7 +276,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     };
   }, [cleanSymbol, chartType]);
 
-  // 3. Réception et injection des ticks WebSocket
+  // 3. Réception sécurisée des ticks en direct
   const handleLiveQuote = useCallback(
     (quote: QuoteModel) => {
       if (!seriesRef.current || candlesDataRef.current.length === 0) return;
@@ -283,8 +290,9 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       const lastIndex = currentCandles.length - 1;
       const lastCandle = currentCandles[lastIndex];
 
+      const quoteTime = Math.floor(new Date(quote.timestamp).getTime() / 1000) as UTCTimestamp;
+
       if (chartType === 'area') {
-        const quoteTime = Math.floor(new Date(quote.timestamp).getTime() / 1000) as UTCTimestamp;
         const areaUpdate = {
           time: quoteTime >= (lastCandle.time as number) ? quoteTime : lastCandle.time,
           value: price,
@@ -293,16 +301,29 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         return;
       }
 
-      const updatedCandle: CandlestickData = {
-        time: lastCandle.time,
-        open: lastCandle.open,
-        high: Math.max(lastCandle.high, price),
-        low: Math.min(lastCandle.low, price),
-        close: price,
-      };
-
-      currentCandles[lastIndex] = updatedCandle;
-      (seriesRef.current as ISeriesApi<'Candlestick'>).update(updatedCandle);
+      // Si le tick appartient à une nouvelle bougie
+      if (quoteTime > (lastCandle.time as number)) {
+        const newCandle: CandlestickData = {
+          time: quoteTime,
+          open: price,
+          high: price,
+          low: price,
+          close: price,
+        };
+        currentCandles.push(newCandle);
+        (seriesRef.current as ISeriesApi<'Candlestick'>).update(newCandle);
+      } else {
+        // Mise à jour de la bougie en cours
+        const updatedCandle: CandlestickData = {
+          time: lastCandle.time,
+          open: lastCandle.open,
+          high: Math.max(lastCandle.high, price),
+          low: Math.min(lastCandle.low, price),
+          close: price,
+        };
+        currentCandles[lastIndex] = updatedCandle;
+        (seriesRef.current as ISeriesApi<'Candlestick'>).update(updatedCandle);
+      }
     },
     [chartType, onPriceChange]
   );
@@ -313,7 +334,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     enabled: !loading && !sparkline,
   });
 
-  // 4. Recadrage automatique lors du changement d'intervalle
+  // 4. Recadrage lors du changement de période
   useEffect(() => {
     if (!chartRef.current || candlesDataRef.current.length === 0) return;
 

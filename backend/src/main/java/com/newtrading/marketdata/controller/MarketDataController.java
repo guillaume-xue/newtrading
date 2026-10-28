@@ -2,6 +2,7 @@ package com.newtrading.marketdata.controller;
 
 import com.newtrading.marketdata.dto.CandleDto;
 import com.newtrading.marketdata.dto.QuoteDto;
+import com.newtrading.marketdata.dto.ScreenerItemDto;
 import com.newtrading.marketdata.service.MarketDataCacheService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +12,7 @@ import java.util.List;
 
 @CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 @RestController
-@RequestMapping("/market") // Aligné avec fetchMarketHistory /market/history/{symbol}
+@RequestMapping("/api/v1/market")
 @RequiredArgsConstructor
 public class MarketDataController {
 
@@ -25,5 +26,10 @@ public class MarketDataController {
     @GetMapping("/quote/{symbol}")
     public ResponseEntity<QuoteDto> getQuote(@PathVariable String symbol) {
         return ResponseEntity.ok(marketDataCacheService.getQuote(symbol));
+    }
+
+    @GetMapping("/screener")
+    public ResponseEntity<List<ScreenerItemDto>> getScreener() {
+        return ResponseEntity.ok(marketDataCacheService.getScreenerData());
     }
 }

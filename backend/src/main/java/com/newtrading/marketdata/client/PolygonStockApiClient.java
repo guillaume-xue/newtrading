@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -39,7 +40,7 @@ public class PolygonStockApiClient implements StockApiClient {
             @Value("${application.marketdata.polygon.base-url:https://api.polygon.io}") String baseUrl,
             @Value("${application.marketdata.polygon.api-key}") String apiKey,
             @Value("${application.marketdata.polygon.connect-timeout-ms:5000}") int connectTimeout,
-            @Value("${application.marketdata.polygon.read-timeout-ms:10000}") int readTimeout,
+            @Value("${application.marketdata.polygon.read-timeout-ms:8000}") int readTimeout,
             ObjectMapper objectMapper) {
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -50,105 +51,114 @@ public class PolygonStockApiClient implements StockApiClient {
                 .baseUrl(baseUrl)
                 .requestFactory(factory)
                 .defaultStatusHandler(HttpStatusCode::is4xxClientError, (request, response) -> {
+                    log.error("Erreur client HTTP {} sur {}", response.getStatusCode(), request.getURI());
                     if (response.getStatusCode().value() == 429) {
                         throw new BusinessException("Quota externe Polygon dépassé", HttpStatus.TOO_MANY_REQUESTS);
                     }
                     if (response.getStatusCode().value() == 401 || response.getStatusCode().value() == 403) {
-                        throw new BusinessException("Clé API Polygon invalide ou expirée", HttpStatus.UNAUTHORIZED);
+                        throw new BusinessException("Clé API Polygon invalide ou non autorisée", HttpStatus.UNAUTHORIZED);
                     }
                     throw new BusinessException("Erreur client Polygon : " + response.getStatusCode(),
                             HttpStatus.valueOf(response.getStatusCode().value()));
                 })
                 .defaultStatusHandler(HttpStatusCode::is5xxServerError, (request, response) -> {
-                    throw new BusinessException("Serveur Polygon distant indisponible", HttpStatus.BAD_GATEWAY);
+                    log.error("Erreur serveur distant Polygon 5xx sur {}", request.getURI());
+                    throw new BusinessException("Serveur Polygon indisponible", HttpStatus.BAD_GATEWAY);
                 })
                 .build();
         this.apiKey = apiKey;
         this.objectMapper = objectMapper;
     }
 
+    private String normalizeTicker(String raw) {
+        String clean = raw.trim().toUpperCase();
+        // Gestion des paires Crypto pour Polygon (ex: BTCUSDT -> X:BTCUSD)
+        if (clean.equals("BTCUSDT") || clean.equals("BTC/USD")) return "X:BTCUSD";
+        if (clean.equals("ETHUSDT") || clean.equals("ETH/USD")) return "X:ETHUSD";
+        if (clean.equals("SOLUSDT") || clean.equals("SOL/USD")) return "X:SOLUSD";
+        if (clean.endsWith("USDT")) {
+            return "X:" + clean.replace("USDT", "USD");
+        }
+        return clean;
+    }
+
     @Override
     @RateLimiter(name = "polygonApi", fallbackMethod = "fetchDailyHistoryFallback")
     @CircuitBreaker(name = "polygonApi", fallbackMethod = "fetchDailyHistoryFallback")
     public List<CandleDto> fetchDailyHistory(String symbol) {
-        String cleanSymbol = symbol.toUpperCase();
+        String ticker = normalizeTicker(symbol);
         LocalDate toDate = LocalDate.now(ZoneOffset.UTC).minusDays(1);
-        LocalDate fromDate = toDate.minusYears(2);
+        LocalDate fromDate = toDate.minusYears(1);
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        String fromStr = fromDate.format(formatter);
-        String toStr = toDate.format(formatter);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        String fromStr = fromDate.format(fmt);
+        String toStr = toDate.format(fmt);
 
-        log.debug("Appel sortant Polygon History pour {}", cleanSymbol);
+        log.info("Interrogation Polygon History : ticker={}, from={}, to={}", ticker, fromStr, toStr);
 
         String response = restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/v2/aggs/ticker/{ticker}/range/1/day/{from}/{to}")
                         .queryParam("adjusted", "true")
                         .queryParam("sort", "asc")
-                        .queryParam("limit", 5000)
+                        .queryParam("limit", 500)
                         .queryParam("apiKey", apiKey)
-                        .build(cleanSymbol, fromStr, toStr))
+                        .build(ticker, fromStr, toStr))
                 .retrieve()
                 .body(String.class);
 
-        return parseCandles(response, cleanSymbol);
+        return parseCandles(response, symbol);
     }
 
     @Override
     @RateLimiter(name = "polygonApi", fallbackMethod = "fetchQuoteFallback")
     @CircuitBreaker(name = "polygonApi", fallbackMethod = "fetchQuoteFallback")
     public QuoteDto fetchQuote(String symbol) {
-        String cleanSymbol = symbol.toUpperCase();
+        String ticker = normalizeTicker(symbol);
 
-        log.debug("Appel sortant Polygon Quote pour {}", cleanSymbol);
+        log.info("Interrogation Polygon Quote : ticker={}", ticker);
 
         String response = restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/v2/aggs/ticker/{ticker}/prev")
                         .queryParam("adjusted", "true")
                         .queryParam("apiKey", apiKey)
-                        .build(cleanSymbol))
+                        .build(ticker))
                 .retrieve()
                 .body(String.class);
 
-        return parsePreviousCloseQuote(response, cleanSymbol);
+        return parsePreviousCloseQuote(response, symbol);
     }
 
     // --- Fallbacks Resilience4j ---
 
     public List<CandleDto> fetchDailyHistoryFallback(String symbol, RequestNotPermitted ex) {
-        log.warn("RateLimiter actif sur Polygon (History) pour {} : requête rejetée en amont", symbol);
-        throw new BusinessException("Serveur surchargé : quota d'appels externes atteint. Veuillez réessayer dans quelques instants.", HttpStatus.TOO_MANY_REQUESTS);
+        log.warn("RateLimiter Polygon déclenché pour {} (History) : quota dépassé", symbol);
+        return null;
     }
 
     public List<CandleDto> fetchDailyHistoryFallback(String symbol, Throwable ex) {
-        log.error("CircuitBreaker ou panne réseau sur Polygon (History) pour {} : {}", symbol, ex.getMessage());
-        throw new BusinessException("Service de cotation momentanément indisponible.", HttpStatus.SERVICE_UNAVAILABLE);
+        log.warn("Échec appel Polygon pour {} (History) : {}", symbol, ex.getMessage());
+        return null;
     }
 
     public QuoteDto fetchQuoteFallback(String symbol, RequestNotPermitted ex) {
-        log.warn("RateLimiter actif sur Polygon (Quote) pour {} : requête rejetée en amont", symbol);
-        throw new BusinessException("Quota d'appels externes atteint pour la cotation en direct.", HttpStatus.TOO_MANY_REQUESTS);
+        log.warn("RateLimiter Polygon déclenché pour {} (Quote) : quota dépassé", symbol);
+        return null;
     }
 
     public QuoteDto fetchQuoteFallback(String symbol, Throwable ex) {
-        log.error("CircuitBreaker ou panne réseau sur Polygon (Quote) pour {} : {}", symbol, ex.getMessage());
-        throw new BusinessException("Service de cotation momentanément indisponible.", HttpStatus.SERVICE_UNAVAILABLE);
+        log.warn("Échec appel Polygon pour {} (Quote) : {}", symbol, ex.getMessage());
+        return null;
     }
-
-    // --- Parsing existant conservé ---
 
     private List<CandleDto> parseCandles(String json, String symbol) {
         try {
             JsonNode root = objectMapper.readTree(json);
-            if (root.has("status") && "ERROR".equalsIgnoreCase(root.get("status").asText())) {
-                throw new BusinessException(root.path("error").asText("Erreur Polygon"), HttpStatus.BAD_REQUEST);
-            }
-
             JsonNode results = root.get("results");
             if (results == null || !results.isArray() || results.isEmpty()) {
-                throw new BusinessException("Aucune donnée disponible pour : " + symbol, HttpStatus.NOT_FOUND);
+                log.warn("Polygon : aucune bougie trouvée dans le JSON pour {}", symbol);
+                return null;
             }
 
             List<CandleDto> candles = new ArrayList<>(results.size());
@@ -162,11 +172,11 @@ public class PolygonStockApiClient implements StockApiClient {
                         .volume(new BigDecimal(node.get("v").asText()))
                         .build());
             }
+            log.info("Polygon : {} bougies réelles chargées avec succès pour {}", candles.size(), symbol);
             return candles;
-        } catch (BusinessException be) {
-            throw be;
         } catch (Exception e) {
-            throw new BusinessException("Erreur parsing bougies Polygon : " + e.getMessage(), HttpStatus.BAD_GATEWAY);
+            log.error("Erreur parsing bougies Polygon pour {} : {}", symbol, e.getMessage());
+            return null;
         }
     }
 
@@ -174,9 +184,9 @@ public class PolygonStockApiClient implements StockApiClient {
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode results = root.get("results");
-
             if (results == null || !results.isArray() || results.isEmpty()) {
-                throw new BusinessException("Cotation introuvable : " + symbol, HttpStatus.NOT_FOUND);
+                log.warn("Polygon : aucun résultat pour le quote de {}", symbol);
+                return null;
             }
 
             JsonNode node = results.get(0);
@@ -185,9 +195,11 @@ public class PolygonStockApiClient implements StockApiClient {
             BigDecimal change = closePrice.subtract(openPrice);
             BigDecimal changePercent = BigDecimal.ZERO;
             if (openPrice.compareTo(BigDecimal.ZERO) != 0) {
-                changePercent = change.divide(openPrice, 4, java.math.RoundingMode.HALF_UP)
+                changePercent = change.divide(openPrice, 4, RoundingMode.HALF_UP)
                         .multiply(BigDecimal.valueOf(100));
             }
+
+            log.info("Polygon : cotation réelle reçue pour {} -> prix={}", symbol, closePrice);
 
             return QuoteDto.builder()
                     .symbol(symbol)
@@ -197,10 +209,9 @@ public class PolygonStockApiClient implements StockApiClient {
                     .volume(new BigDecimal(node.get("v").asText()))
                     .timestamp(Instant.ofEpochMilli(node.get("t").asLong()))
                     .build();
-        } catch (BusinessException be) {
-            throw be;
         } catch (Exception e) {
-            throw new BusinessException("Erreur parsing Quote Polygon : " + e.getMessage(), HttpStatus.BAD_GATEWAY);
+            log.error("Erreur parsing Quote Polygon pour {} : {}", symbol, e.getMessage());
+            return null;
         }
     }
 }
