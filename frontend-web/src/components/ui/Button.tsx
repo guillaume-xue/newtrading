@@ -7,7 +7,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   ViewStyle,
-  TextStyle, // <-- Ajout de TextStyle
+  TextStyle,
+  StyleProp, // <-- Ajout de StyleProp
 } from 'react-native';
 import Image from 'next/image';
 
@@ -51,8 +52,8 @@ export interface ButtonProps {
   rightIcon?: ButtonIconProp;
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
-  labelStyle?: TextStyle; // <-- Ajout ici
+  style?: StyleProp<ViewStyle>; // <-- Permet de passer des objets ou des tableaux de styles []
+  labelStyle?: StyleProp<TextStyle>; // <-- Permet de passer des objets ou des tableaux de styles []
   roundedSide?: RoundedSide;
 }
 
@@ -72,7 +73,7 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   roundedSide = 'all',
   style,
-  labelStyle, // <-- Déstructuration ici
+  labelStyle,
 }) => {
   const { theme } = useAppTheme();
   const { colors, primitives } = theme;
@@ -231,7 +232,7 @@ export const Button: React.FC<ButtonProps> = ({
               style={[
                 styles[`label_${size}`],
                 { color: variantStyle.textColor },
-                labelStyle, // <-- Fusion avec le style externe
+                labelStyle,
               ]}
               numberOfLines={1}
             >

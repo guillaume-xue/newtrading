@@ -16,13 +16,14 @@ interface InteractiveMarketChartProps {
   symbol: string;
   changePercent?: number | string;
   defaultRange?: TimeRange;
+  disableZoom?: boolean;
   onFullscreenPress?: () => void;
 }
 
 const RANGES: { label: string; value: TimeRange }[] = [
   { label: '1D', value: '1D' },
-  { label: '3D', value: '3M' },
   { label: '1M', value: '1M' },
+  { label: '3M', value: '3M' },
   { label: '1Y', value: '1Y' },
   { label: '5Y', value: '5Y' },
   { label: 'Tout', value: 'ALL' },
@@ -31,7 +32,8 @@ const RANGES: { label: string; value: TimeRange }[] = [
 export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
   symbol,
   changePercent,
-  defaultRange = '1D',
+  defaultRange = 'ALL',
+  disableZoom = false,
   onFullscreenPress,
 }) => {
   const { theme } = useAppTheme();
@@ -80,6 +82,7 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
           chartType={chartMode === 'left' ? 'candlestick' : 'area'}
           selectedRange={selectedRange}
           themeMode={isDark ? 'dark' : 'light'}
+          disableZoom={disableZoom}
           lineColor={lineColor}
           topColor={topColor}
           bottomColor={bottomColor}

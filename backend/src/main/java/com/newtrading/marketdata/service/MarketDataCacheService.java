@@ -30,15 +30,35 @@ public class MarketDataCacheService {
     private final MarketCandleRepository candleRepository;
 
     private static final List<ScreenerItemDto> SCREENER_UNIVERSE = List.of(
+            // --- TOP 10 ACTIONS ---
             ScreenerItemDto.builder().id("1").name("APPLE INC.").symbol("AAPL").category("ACTIONS").build(),
             ScreenerItemDto.builder().id("2").name("NVIDIA CORP.").symbol("NVDA").category("ACTIONS").build(),
             ScreenerItemDto.builder().id("3").name("MICROSOFT CORP.").symbol("MSFT").category("ACTIONS").build(),
-            ScreenerItemDto.builder().id("4").name("SPDR S&P 500").symbol("SPY").category("INDICES").build(),
-            ScreenerItemDto.builder().id("5").name("INVESCO QQQ").symbol("QQQ").category("INDICES").build(),
-            ScreenerItemDto.builder().id("6").name("DOW JONES").symbol("DIA").category("INDICES").build(),
-            ScreenerItemDto.builder().id("7").name("BITCOIN").symbol("BTCUSDT").category("CRYPTO").build(),
-            ScreenerItemDto.builder().id("8").name("ETHEREUM").symbol("ETHUSDT").category("CRYPTO").build(),
-            ScreenerItemDto.builder().id("9").name("SOLANA").symbol("SOLUSDT").category("CRYPTO").build()
+            ScreenerItemDto.builder().id("4").name("AMAZON.COM INC.").symbol("AMZN").category("ACTIONS").build(),
+            ScreenerItemDto.builder().id("5").name("ALPHABET INC.").symbol("GOOGL").category("ACTIONS").build(),
+            ScreenerItemDto.builder().id("6").name("META PLATFORMS").symbol("META").category("ACTIONS").build(),
+            ScreenerItemDto.builder().id("7").name("TESLA INC.").symbol("TSLA").category("ACTIONS").build(),
+            ScreenerItemDto.builder().id("8").name("BERKSHIRE HATHAWAY").symbol("BRK.B").category("ACTIONS").build(),
+            ScreenerItemDto.builder().id("9").name("BROADCOM INC.").symbol("AVGO").category("ACTIONS").build(),
+            ScreenerItemDto.builder().id("10").name("JPMORGAN CHASE").symbol("JPM").category("ACTIONS").build(),
+
+            // --- TOP 10 INDICES & ETFS DE MARCHÉ ---
+            ScreenerItemDto.builder().id("11").name("SPDR S&P 500").symbol("SPY").category("INDICES").build(),
+            ScreenerItemDto.builder().id("12").name("INVESCO QQQ (NASDAQ)").symbol("QQQ").category("INDICES").build(),
+            ScreenerItemDto.builder().id("13").name("SPDR DOW JONES").symbol("DIA").category("INDICES").build(),
+            ScreenerItemDto.builder().id("14").name("ISHARES RUSSELL 2000").symbol("IWM").category("INDICES").build(),
+            ScreenerItemDto.builder().id("15").name("ISHARES MSCI EMERGING").symbol("EEM").category("INDICES").build(),
+            ScreenerItemDto.builder().id("16").name("VANGUARD FTSE EUROPE").symbol("VGK").category("INDICES").build(),
+            ScreenerItemDto.builder().id("17").name("ISHARES MSCI JAPAN").symbol("EWJ").category("INDICES").build(),
+            ScreenerItemDto.builder().id("18").name("PROSHARES VIX SHORT-TERM").symbol("VIXY").category("INDICES").build(),
+            ScreenerItemDto.builder().id("19").name("SPDR GOLD SHARES").symbol("GLD").category("INDICES").build(),
+            ScreenerItemDto.builder().id("20").name("ISHARES 20+ YEAR TREASURY").symbol("TLT").category("INDICES").build(),
+
+            // --- TOP 4 CRYPTOS MAJEURES ---
+            ScreenerItemDto.builder().id("21").name("BITCOIN").symbol("BTCUSDT").category("CRYPTO").build(),
+            ScreenerItemDto.builder().id("22").name("ETHEREUM").symbol("ETHUSDT").category("CRYPTO").build(),
+            ScreenerItemDto.builder().id("23").name("SOLANA").symbol("SOLUSDT").category("CRYPTO").build(),
+            ScreenerItemDto.builder().id("24").name("BNB").symbol("BNBUSDT").category("CRYPTO").build()
     );
 
     @Cacheable(value = "stockHistory", key = "#symbol.toUpperCase()", sync = true)
@@ -46,14 +66,16 @@ public class MarketDataCacheService {
         String cleanSymbol = symbol.toUpperCase();
         log.info("Chargement historique pour {}", cleanSymbol);
 
+        // 1. Consultation des vraies bougies déjà archivées en base
         try {
             List<MarketCandle> existingCandles = candleRepository
                     .findByAssetCodeAndTimeframeOrderByOpenTimeAsc(cleanSymbol, "1D");
 
             if (!existingCandles.isEmpty()) {
                 MarketCandle latest = existingCandles.get(existingCandles.size() - 1);
+                // Si la dernière bougie a moins de 24h, on sert le cache DB
                 if (latest.getOpenTime().isAfter(Instant.now().minus(24, ChronoUnit.HOURS))) {
-                    log.info("DB Hit pour {} ({} bougies)", cleanSymbol, existingCandles.size());
+                    log.info("DB Hit pour {} ({} vraies bougies en base)", cleanSymbol, existingCandles.size());
                     return existingCandles.stream().map(this::toCandleDto).toList();
                 }
             }
@@ -61,20 +83,23 @@ public class MarketDataCacheService {
             log.warn("Lecture DB impossible pour {} ({}) — tentative via API externe", cleanSymbol, e.getMessage());
         }
 
-        List<CandleDto> candles = null;
+        // 2. Appel API externe (Polygon)
+        List<CandleDto> realCandles = null;
         try {
-            candles = stockApiClient.fetchDailyHistory(cleanSymbol);
+            realCandles = stockApiClient.fetchDailyHistory(cleanSymbol);
         } catch (Exception e) {
-            log.warn("Fournisseur externe indisponible ou quota atteint pour {} ({}) — repli données locales",
-                    cleanSymbol, e.getMessage());
+            log.warn("Fournisseur externe indisponible ou quota atteint pour {} ({})", cleanSymbol, e.getMessage());
         }
 
-        if (candles == null || candles.isEmpty()) {
-            candles = generateFallbackCandles(cleanSymbol);
+        // 3. Persistance STRICTE : uniquement si l'API a retourné des données réelles
+        if (realCandles != null && !realCandles.isEmpty()) {
+            persistCandles(cleanSymbol, "1D", realCandles);
+            return realCandles;
         }
 
-        persistCandles(cleanSymbol, "1D", candles);
-        return candles;
+        // 4. Repli mémoire temporaire : données simulées envoyées au front, MAIS JAMAIS SAUVEGARDÉES EN BASE
+        log.info("Génération de données de secours en mémoire pour {} (non persistées)", cleanSymbol);
+        return generateFallbackCandles(cleanSymbol);
     }
 
     @Cacheable(value = "stockQuote", key = "#symbol.toUpperCase()", sync = true)
@@ -150,7 +175,7 @@ public class MarketDataCacheService {
 
             if (!toSave.isEmpty()) {
                 candleRepository.saveAll(toSave);
-                log.info("{} nouvelles bougies enregistrées pour {}", toSave.size(), assetCode);
+                log.info("{} vraies bougies de l'API enregistrées pour {}", toSave.size(), assetCode);
             }
         } catch (Exception e) {
             log.error("Échec persistance bougies pour {} (non-bloquant) : {}", assetCode, e.getMessage());
@@ -162,13 +187,37 @@ public class MarketDataCacheService {
         Instant now = Instant.now().truncatedTo(ChronoUnit.DAYS);
 
         BigDecimal base = switch (symbol) {
+            // Cryptos
             case "BTCUSDT" -> new BigDecimal("65000.00");
             case "ETHUSDT" -> new BigDecimal("3500.00");
             case "SOLUSDT" -> new BigDecimal("145.00");
-            case "SPY"     -> new BigDecimal("510.00");
-            case "QQQ"     -> new BigDecimal("440.00");
-            case "DIA"     -> new BigDecimal("390.00");
-            default        -> new BigDecimal("150.00");
+            case "BNBUSDT" -> new BigDecimal("580.00");
+
+            // Indices & ETFs
+            case "SPY"     -> new BigDecimal("580.00");
+            case "QQQ"     -> new BigDecimal("495.00");
+            case "DIA"     -> new BigDecimal("425.00");
+            case "IWM"     -> new BigDecimal("220.00");
+            case "EEM"     -> new BigDecimal("44.50");
+            case "VGK"     -> new BigDecimal("70.00");
+            case "EWJ"     -> new BigDecimal("72.00");
+            case "VIXY"    -> new BigDecimal("13.50");
+            case "GLD"     -> new BigDecimal("250.00");
+            case "TLT"     -> new BigDecimal("93.00");
+
+            // Actions
+            case "AAPL"    -> new BigDecimal("230.00");
+            case "NVDA"    -> new BigDecimal("140.00");
+            case "MSFT"    -> new BigDecimal("430.00");
+            case "AMZN"    -> new BigDecimal("190.00");
+            case "GOOGL"   -> new BigDecimal("170.00");
+            case "META"    -> new BigDecimal("585.00");
+            case "TSLA"    -> new BigDecimal("220.00");
+            case "BRK.B"   -> new BigDecimal("450.00");
+            case "AVGO"    -> new BigDecimal("180.00");
+            case "JPM"     -> new BigDecimal("225.00");
+
+            default        -> new BigDecimal("100.00");
         };
 
         for (int i = 60; i >= 0; i--) {
@@ -196,12 +245,37 @@ public class MarketDataCacheService {
 
     private QuoteDto generateFallbackQuote(String symbol) {
         BigDecimal price = switch (symbol) {
+            // Cryptos
             case "BTCUSDT" -> new BigDecimal("65000.00");
             case "ETHUSDT" -> new BigDecimal("3500.00");
             case "SOLUSDT" -> new BigDecimal("145.00");
-            case "SPY"     -> new BigDecimal("510.00");
-            case "QQQ"     -> new BigDecimal("440.00");
-            default        -> new BigDecimal("150.00");
+            case "BNBUSDT" -> new BigDecimal("580.00");
+
+            // Indices & ETFs
+            case "SPY"     -> new BigDecimal("580.00");
+            case "QQQ"     -> new BigDecimal("495.00");
+            case "DIA"     -> new BigDecimal("425.00");
+            case "IWM"     -> new BigDecimal("220.00");
+            case "EEM"     -> new BigDecimal("44.50");
+            case "VGK"     -> new BigDecimal("70.00");
+            case "EWJ"     -> new BigDecimal("72.00");
+            case "VIXY"    -> new BigDecimal("13.50");
+            case "GLD"     -> new BigDecimal("250.00");
+            case "TLT"     -> new BigDecimal("93.00");
+
+            // Actions
+            case "AAPL"    -> new BigDecimal("230.00");
+            case "NVDA"    -> new BigDecimal("140.00");
+            case "MSFT"    -> new BigDecimal("430.00");
+            case "AMZN"    -> new BigDecimal("190.00");
+            case "GOOGL"   -> new BigDecimal("170.00");
+            case "META"    -> new BigDecimal("585.00");
+            case "TSLA"    -> new BigDecimal("220.00");
+            case "BRK.B"   -> new BigDecimal("450.00");
+            case "AVGO"    -> new BigDecimal("180.00");
+            case "JPM"     -> new BigDecimal("225.00");
+
+            default        -> new BigDecimal("100.00");
         };
 
         return QuoteDto.builder()

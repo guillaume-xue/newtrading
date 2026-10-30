@@ -97,9 +97,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const router = useRouter();
   const pathname = usePathname();
 
-  // Consommation du thème sémantique global NewTrading
   const { theme, toggleTheme } = useAppTheme();
-  const { colors, primitives, isDark } = theme;
+  const { colors, isDark } = theme;
 
   const { isAuthenticated, isLoading } = useAuthStore();
 
@@ -109,7 +108,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
   const [internalSearch, setInternalSearch] = useState(searchValue ?? '');
 
-  // État des notifications reçues
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<AlertResponse[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
@@ -222,19 +220,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   }, [streamStatus]);
 
-  // Filtre SVG adaptatif selon le thème actif
   const iconFilter = useMemo(() => {
     return isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
   }, [isDark]);
 
-  // Filtre logo (inversion en mode sombre, conserve les couleurs d'origine en mode clair)
   const logoFilter = useMemo(() => {
     return isDark ? 'brightness(0) invert(1)' : 'none';
   }, [isDark]);
 
   return (
     <>
-      {/* Bandeau d'alerte réseau */}
       {streamStatus && streamStatus !== 'CONNECTED' && (
         <View style={styles.reconnectBanner}>
           <View style={[styles.networkDot, { backgroundColor: networkStatusColor }]} />
@@ -318,7 +313,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </View>
           )}
 
-          {/* Outils vue Graphique */}
           {computedVariant === 'chart' && (
             <View style={styles.chartToolsGroup}>
               <View style={styles.chartSearchWrapper}>
@@ -477,9 +471,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <View style={styles.rightGroup}>
           {isLoading ? (
             <View style={styles.authLoadingPlaceholder} />
-          ) : computedVariant === 'guest' ? (
+          ) : !isAuthenticated ? (
+            /* Mode GUEST : toujours Connexion / Ouvrir un compte, sans liquidités ni profil */
             <View style={styles.guestActionRow}>
-              {/* Sélecteur de thème pour les visiteurs */}
               <Pressable
                 onPress={toggleTheme}
                 accessibilityLabel="Changer de thème"
@@ -515,11 +509,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               />
             </View>
           ) : (
+            /* Mode AUTHENTICATED : liquidités, alertes, réglages et profil */
             <View style={styles.authActionRow}>
               <MarketCashInfo label="LIQUIDITÉS" amount={cashAmount} />
 
               <View style={styles.iconActions}>
-                {/* Sélecteur de thème connecté */}
                 <Pressable
                   onPress={toggleTheme}
                   accessibilityLabel="Changer de thème"
@@ -537,7 +531,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   />
                 </Pressable>
 
-                {/* Notifications */}
                 <View style={styles.notifWrapper}>
                   <Pressable
                     onPress={handleToggleNotifications}
@@ -665,7 +658,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   )}
                 </View>
 
-                {/* Paramètres */}
                 <Pressable onPress={onSettingsPress} style={styles.actionIconBtn}>
                   <Image
                     src={GearIcon}
@@ -676,7 +668,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   />
                 </Pressable>
 
-                {/* Profil */}
                 <Pressable
                   onPress={handleProfileClick}
                   style={[

@@ -145,8 +145,8 @@ export const ScreenerTable: React.FC<ScreenerTableProps> = ({
           const totalValuation = item.quantity * item.currentPrice;
           const isPositivePnL = item.unrealizedPnL >= 0;
           const pnlColor = isPositivePnL
-            ? colors['colors_badge_up-text']
-            : colors['colors_badge_down-text'];
+            ? colors['colors_badge_up']
+            : colors['colors_badge_down'];
 
           return (
             <View
