@@ -7,7 +7,6 @@ import {
   Pressable,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
   ScrollView,
 } from 'react-native';
 import Image from 'next/image';
@@ -19,6 +18,8 @@ import GearIcon from '@/assets/icons/gear.svg';
 import ProfileIcon from '@/assets/icons/profile.svg';
 import StatsIcon from '@/assets/icons/stats.svg';
 import ChatArrowGrowIcon from '@/assets/icons/chat-arrow-grow.svg';
+import BrightnessIcon from '@/assets/icons/brightness.svg';
+import MoonIcon from '@/assets/icons/moon.svg';
 
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Button } from '@/components/ui/Button';
@@ -29,10 +30,7 @@ import { SignUpModal } from '@/components/auth/SignUpModal';
 import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { alertApi, AlertResponse } from '@/lib/api/alertApi';
 import { StreamStatus } from '@/lib/hooks/useMarketStream';
-
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 import { TimeRange, TIME_RANGES } from '@/types/timeRange';
 
 export type HeaderVariant = 'guest' | 'authenticated' | 'chart';
@@ -98,8 +96,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+
+  const { theme, toggleTheme } = useAppTheme();
+  const { colors, isDark } = theme;
 
   const { isAuthenticated, isLoading } = useAuthStore();
 
@@ -109,7 +108,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
   const [internalSearch, setInternalSearch] = useState(searchValue ?? '');
 
-  // État des notifications reçues
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<AlertResponse[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
@@ -222,9 +220,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   }, [streamStatus]);
 
+  const iconFilter = useMemo(() => {
+    return isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
+  }, [isDark]);
+
+  const logoFilter = useMemo(() => {
+    return isDark ? 'brightness(0) invert(1)' : 'none';
+  }, [isDark]);
+
   return (
     <>
-      {/* Bandeau d'alerte réseau en cas de rupture STOMP/WebSocket */}
       {streamStatus && streamStatus !== 'CONNECTED' && (
         <View style={styles.reconnectBanner}>
           <View style={[styles.networkDot, { backgroundColor: networkStatusColor }]} />
@@ -240,8 +245,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         style={[
           styles.headerContainer,
           {
-            backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-            borderBottomColor: theme['colors_divider_text'] ?? '#D1D5DB',
+            backgroundColor: colors['colors_bg_secondary'],
+            borderBottomColor: colors['colors_divider_text'],
           },
           style,
         ]}
@@ -249,18 +254,24 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {/* 1. SECTION GAUCHE */}
         <View style={styles.leftGroup}>
           <Pressable onPress={handleLogoPress} style={styles.logoRow}>
-            <Image src={LogoSvg} width={32} height={32} alt="NewTrading" />
+            <Image
+              src={LogoSvg}
+              width={32}
+              height={32}
+              alt="NewTrading"
+              priority
+              style={{ filter: logoFilter }}
+            />
             {computedVariant !== 'chart' && (
               <Text
                 style={[
                   styles.brandTitle,
-                  { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                  { color: colors['colors_text_primary'] },
                 ]}
               >
                 NewTrading
               </Text>
             )}
-            {/* Pastille de statut réseau */}
             {streamStatus && (
               <View
                 style={[
@@ -283,7 +294,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       styles.navItem,
                       isActive && [
                         styles.activeNavItem,
-                        { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                        { backgroundColor: colors['colors_bg_primary'] },
                       ],
                     ]}
                   >
@@ -291,7 +302,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       style={[
                         styles.navText,
                         isActive ? styles.navTextActive : styles.navTextInactive,
-                        { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                        { color: colors['colors_text_primary'] },
                       ]}
                     >
                       {item.label}
@@ -302,7 +313,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </View>
           )}
 
-          {/* Outils vue Graphique */}
           {computedVariant === 'chart' && (
             <View style={styles.chartToolsGroup}>
               <View style={styles.chartSearchWrapper}>
@@ -323,7 +333,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <View
                 style={[
                   styles.separator,
-                  { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
+                  { backgroundColor: colors['colors_divider_text'] },
                 ]}
               />
 
@@ -332,10 +342,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   onPress={() => setIsRangeMenuOpen((prev) => !prev)}
                   style={[
                     styles.rangeButton,
-                    { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                    { backgroundColor: colors['colors_bg_primary'] },
                   ]}
                 >
-                  <Text style={[styles.chipText, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                  <Text style={[styles.chipText, { color: colors['colors_text_primary'] }]}>
                     {selectedRange}
                   </Text>
                 </Pressable>
@@ -345,8 +355,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     style={[
                       styles.rangeDropdown,
                       {
-                        backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                        borderColor: theme['colors_divider_text'] ?? '#E5E7EB',
+                        backgroundColor: colors['colors_bg_secondary'],
+                        borderColor: colors['colors_divider_text'],
                       },
                     ]}
                   >
@@ -359,7 +369,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                           style={[
                             styles.rangeDropdownItem,
                             isSelected && {
-                              backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6',
+                              backgroundColor: colors['colors_bg_primary'],
                             },
                           ]}
                         >
@@ -368,8 +378,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                               styles.rangeDropdownText,
                               {
                                 color: isSelected
-                                  ? '#2563EB'
-                                  : (theme['colors_text_primary'] ?? '#0B0F19'),
+                                  ? colors['colors_badge_primary-action-bg']
+                                  : colors['colors_text_primary'],
                                 fontWeight: isSelected ? '700' : '500',
                               },
                             ]}
@@ -386,7 +396,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <View
                 style={[
                   styles.separator,
-                  { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
+                  { backgroundColor: colors['colors_divider_text'] },
                 ]}
               />
 
@@ -394,7 +404,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 onPress={onToggleChartType}
                 style={[
                   styles.iconButton,
-                  { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                  { backgroundColor: colors['colors_bg_primary'] },
                 ]}
               >
                 <Image
@@ -402,13 +412,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   width={16}
                   height={16}
                   alt={chartType === 'candlestick' ? 'Vue Ligne' : 'Vue Bougies'}
+                  style={{ filter: iconFilter }}
                 />
               </Pressable>
 
               <View
                 style={[
                   styles.separator,
-                  { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
+                  { backgroundColor: colors['colors_divider_text'] },
                 ]}
               />
 
@@ -416,14 +427,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 onPress={handleOpenAlert}
                 style={[
                   styles.alarmChip,
-                  { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                  { backgroundColor: colors['colors_bg_primary'] },
                 ]}
               >
-                <Image src={BellIcon} width={14} height={14} alt="" />
+                <Image
+                  src={BellIcon}
+                  width={14}
+                  height={14}
+                  alt=""
+                  style={{ filter: iconFilter }}
+                />
                 <Text
                   style={[
                     styles.chipText,
-                    { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                    { color: colors['colors_text_primary'] },
                   ]}
                 >
                   Alarme
@@ -454,8 +471,26 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <View style={styles.rightGroup}>
           {isLoading ? (
             <View style={styles.authLoadingPlaceholder} />
-          ) : computedVariant === 'guest' ? (
+          ) : !isAuthenticated ? (
+            /* Mode GUEST : toujours Connexion / Ouvrir un compte, sans liquidités ni profil */
             <View style={styles.guestActionRow}>
+              <Pressable
+                onPress={toggleTheme}
+                accessibilityLabel="Changer de thème"
+                style={[
+                  styles.actionIconBtn,
+                  { backgroundColor: colors['colors_bg_primary'], borderRadius: 8 },
+                ]}
+              >
+                <Image
+                  src={isDark ? BrightnessIcon : MoonIcon}
+                  width={18}
+                  height={18}
+                  alt={isDark ? 'Mode clair' : 'Mode sombre'}
+                  style={{ filter: iconFilter }}
+                />
+              </Pressable>
+
               <Button
                 label="Connexion"
                 variant="outline"
@@ -474,16 +509,40 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               />
             </View>
           ) : (
+            /* Mode AUTHENTICATED : liquidités, alertes, réglages et profil */
             <View style={styles.authActionRow}>
               <MarketCashInfo label="LIQUIDITÉS" amount={cashAmount} />
+
               <View style={styles.iconActions}>
-                {/* Cloche avec badge et dropdown de notifications */}
+                <Pressable
+                  onPress={toggleTheme}
+                  accessibilityLabel="Changer de thème"
+                  style={[
+                    styles.actionIconBtn,
+                    { backgroundColor: colors['colors_bg_primary'], borderRadius: 8 },
+                  ]}
+                >
+                  <Image
+                    src={isDark ? BrightnessIcon : MoonIcon}
+                    width={18}
+                    height={18}
+                    alt={isDark ? 'Mode clair' : 'Mode sombre'}
+                    style={{ filter: iconFilter }}
+                  />
+                </Pressable>
+
                 <View style={styles.notifWrapper}>
                   <Pressable
                     onPress={handleToggleNotifications}
                     style={styles.actionIconBtn}
                   >
-                    <Image src={BellIcon} width={20} height={20} alt="Alertes" />
+                    <Image
+                      src={BellIcon}
+                      width={20}
+                      height={20}
+                      alt="Alertes"
+                      style={{ filter: iconFilter }}
+                    />
                     {notifications.length > 0 && (
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>
@@ -493,57 +552,97 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     )}
                   </Pressable>
 
-                  {/* Dropdown des notifications reçues */}
                   {isNotifDropdownOpen && (
                     <View
                       style={[
                         styles.notifDropdown,
                         {
-                          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                          borderColor: theme['colors_divider_text'] ?? '#E5E7EB',
+                          backgroundColor: colors['colors_bg_secondary'],
+                          borderColor: colors['colors_divider_text'],
                         },
                       ]}
                     >
-                      <View style={styles.notifHeader}>
+                      <View style={[styles.notifHeader, { borderBottomColor: colors['colors_divider_text'] }]}>
                         <Text
                           style={[
                             styles.notifHeaderTitle,
-                            { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                            { color: colors['colors_text_primary'] },
                           ]}
                         >
                           Notifications ({notifications.length})
                         </Text>
                         <Pressable onPress={() => handleOpenAlert()}>
-                          <Text style={styles.notifActionLink}>+ Créer</Text>
+                          <Text
+                            style={[
+                              styles.notifActionLink,
+                              { color: colors['colors_badge_primary-action-bg'] },
+                            ]}
+                          >
+                            + Créer
+                          </Text>
                         </Pressable>
                       </View>
 
                       <ScrollView style={styles.notifList} showsVerticalScrollIndicator={false}>
                         {notifLoading ? (
-                          <Text style={styles.notifEmptyText}>Chargement...</Text>
+                          <Text style={[styles.notifEmptyText, { color: colors['colors_text_secondary'] }]}>
+                            Chargement...
+                          </Text>
                         ) : notifications.length === 0 ? (
-                          <Text style={styles.notifEmptyText}>Aucune alerte reçue</Text>
+                          <Text style={[styles.notifEmptyText, { color: colors['colors_text_secondary'] }]}>
+                            Aucune alerte reçue
+                          </Text>
                         ) : (
                           notifications.map((notif) => (
                             <Pressable
                               key={notif.id}
-                              style={styles.notifItem}
+                              style={[
+                                styles.notifItem,
+                                { borderBottomColor: colors['colors_divider_text'] },
+                              ]}
                               onPress={() => {
                                 setIsNotifDropdownOpen(false);
                                 router.push(`/trade?symbol=${encodeURIComponent(notif.assetCode)}`);
                               }}
                             >
                               <View style={styles.notifItemHeader}>
-                                <Text style={styles.notifAsset}>{notif.assetCode}</Text>
-                                <Text style={styles.notifTagTriggered}>Déclenchée</Text>
+                                <Text
+                                  style={[
+                                    styles.notifAsset,
+                                    { color: colors['colors_text_primary'] },
+                                  ]}
+                                >
+                                  {notif.assetCode}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.notifTagTriggered,
+                                    {
+                                      color: colors['colors_badge_down-text'],
+                                      backgroundColor: colors['colors_badge_down-bg'],
+                                    },
+                                  ]}
+                                >
+                                  Déclenchée
+                                </Text>
                               </View>
-                              <Text style={styles.notifDetails}>
+                              <Text
+                                style={[
+                                  styles.notifDetails,
+                                  { color: colors['colors_text_secondary'] },
+                                ]}
+                              >
                                 Seuil {notif.triggerCondition === 'ABOVE' ? '≥' : '≤'}{' '}
                                 {notif.targetPrice.toLocaleString('fr-FR', {
                                   minimumFractionDigits: 2,
                                 })} $
                               </Text>
-                              <Text style={styles.notifDate}>
+                              <Text
+                                style={[
+                                  styles.notifDate,
+                                  { color: colors['colors_text_secondary'] },
+                                ]}
+                              >
                                 {new Date(notif.createdAt).toLocaleDateString('fr-FR', {
                                   day: '2-digit',
                                   month: '2-digit',
@@ -560,19 +659,32 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 </View>
 
                 <Pressable onPress={onSettingsPress} style={styles.actionIconBtn}>
-                  <Image src={GearIcon} width={20} height={20} alt="Paramètres" />
+                  <Image
+                    src={GearIcon}
+                    width={20}
+                    height={20}
+                    alt="Paramètres"
+                    style={{ filter: iconFilter }}
+                  />
                 </Pressable>
+
                 <Pressable
                   onPress={handleProfileClick}
                   style={[
                     styles.actionIconBtn,
                     pathname?.startsWith('/user') && [
                       styles.activeProfileBtn,
-                      { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                      { backgroundColor: colors['colors_bg_primary'] },
                     ],
                   ]}
                 >
-                  <Image src={ProfileIcon} width={20} height={20} alt="Profil" />
+                  <Image
+                    src={ProfileIcon}
+                    width={20}
+                    height={20}
+                    alt="Profil"
+                    style={{ filter: iconFilter }}
+                  />
                 </Pressable>
               </View>
             </View>
@@ -647,6 +759,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    borderBottomWidth: 1,
     zIndex: 60,
   },
   leftGroup: {
@@ -657,36 +770,36 @@ const styles = StyleSheet.create({
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+    gap: 8,
     cursor: 'pointer',
   },
   brandTitle: {
-    fontSize: primitives['typography_font size_font-size-18'] ?? 18,
-    lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
+    gap: 4,
   },
   navItem: {
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
   },
   activeNavItem: {},
   navText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+    fontSize: 14,
+    lineHeight: 20,
   },
   navTextActive: { fontWeight: '700' },
   navTextInactive: { fontWeight: '500' },
   chartToolsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+    gap: 8,
   },
   chartSearchWrapper: {
     width: 140,
@@ -695,7 +808,7 @@ const styles = StyleSheet.create({
   separator: {
     width: 1,
     height: 18,
-    marginHorizontal: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
+    marginHorizontal: 4,
   },
   rangeSelectorWrapper: {
     position: 'relative',
@@ -705,7 +818,7 @@ const styles = StyleSheet.create({
     minWidth: 38,
     height: 30,
     paddingHorizontal: 6,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -735,16 +848,16 @@ const styles = StyleSheet.create({
     minHeight: 30,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
   },
   chipText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: 12,
     fontWeight: '700',
   },
   iconButton: {
     width: 30,
     height: 30,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -788,14 +901,14 @@ const styles = StyleSheet.create({
     zIndex: 90,
   },
   actionIconBtn: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   activeProfileBtn: {
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
   },
   badge: {
     position: 'absolute',
@@ -833,7 +946,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   notifHeaderTitle: {
     fontSize: 13,
@@ -842,7 +954,6 @@ const styles = StyleSheet.create({
   notifActionLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2563EB',
   },
   notifList: {
     maxHeight: 300,
@@ -850,14 +961,12 @@ const styles = StyleSheet.create({
   notifEmptyText: {
     padding: 16,
     fontSize: 12,
-    color: '#9CA3AF',
     textAlign: 'center',
   },
   notifItem: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   notifItemHeader: {
     flexDirection: 'row',
@@ -868,25 +977,20 @@ const styles = StyleSheet.create({
   notifAsset: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0B0F19',
   },
   notifTagTriggered: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#DC2626',
-    backgroundColor: '#FEE2E2',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   notifDetails: {
     fontSize: 12,
-    color: '#4B5563',
     marginBottom: 2,
   },
   notifDate: {
     fontSize: 10,
-    color: '#9CA3AF',
   },
 });
 

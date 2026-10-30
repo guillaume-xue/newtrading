@@ -18,6 +18,12 @@ export const useMarketStream = ({
 }: UseMarketStreamProps) => {
   const stompClientRef = useRef<Client | null>(null);
   const [status, setStatus] = useState<StreamStatus>('DISCONNECTED');
+  const onPriceUpdateRef = useRef(onPriceUpdate);
+
+  // Maintient la référence à jour sans forcer la réinstanciation du WebSocket
+  useEffect(() => {
+    onPriceUpdateRef.current = onPriceUpdate;
+  }, [onPriceUpdate]);
 
   useEffect(() => {
     if (!enabled || !symbol) {
@@ -25,20 +31,23 @@ export const useMarketStream = ({
       return;
     }
 
+    const cleanSymbol = symbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     const token = tokenStorage.get();
-    if (!token) {
-      setStatus('DISCONNECTED');
-      return;
-    }
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws';
+    // Résolution dynamique de l'hôte pour éviter le blocage cross-origin de Safari
+    const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || `ws://${host}:8080/ws`;
+
     setStatus('CONNECTING');
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     const client = new Client({
       brokerURL: wsUrl,
-      connectHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
+      connectHeaders: headers,
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
@@ -47,11 +56,11 @@ export const useMarketStream = ({
       },
       onConnect: () => {
         setStatus('CONNECTED');
-        client.subscribe(`/topic/market/${symbol}`, (message) => {
+        client.subscribe(`/topic/market/${cleanSymbol}`, (message) => {
           if (message.body) {
             try {
               const quote: QuoteModel = JSON.parse(message.body);
-              onPriceUpdate(quote);
+              onPriceUpdateRef.current(quote);
             } catch (err) {
               console.error('Erreur de parsing WebSocket quote :', err);
             }
@@ -79,7 +88,7 @@ export const useMarketStream = ({
       }
       setStatus('DISCONNECTED');
     };
-  }, [symbol, enabled, onPriceUpdate]);
+  }, [symbol, enabled]);
 
   return { status };
 };

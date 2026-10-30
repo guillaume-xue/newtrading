@@ -1,12 +1,11 @@
-// src/components/features/market/components/MarketHeatmapWidget.tsx
 'use client';
 
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, useColorScheme } from 'react-native';
+// src/components/features/market/components/MarketHeatmapWidget.tsx
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { HeatmapTile } from './HeatmapTile';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
+import { fetchScreenerData, ScreenerModel } from '@/lib/api/marketApi';
 
 interface MarketHeatmapWidgetProps {
   title?: string;
@@ -19,16 +18,60 @@ export const MarketHeatmapWidget: React.FC<MarketHeatmapWidgetProps> = ({
   onViewAllPress,
   onAssetPress,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
+
+  const [holdings, setHoldings] = useState<ScreenerModel[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadMarketHoldings = async () => {
+      try {
+        const data = await fetchScreenerData();
+        if (isMounted && data && data.length > 0) {
+          // Filtrage pour ne garder que les actions et indices principaux
+          const filtered = data.filter((item) => item.category === 'ACTIONS' || item.category === 'INDICES');
+          setHoldings(filtered.length >= 6 ? filtered : data);
+        }
+      } catch (err) {
+        console.warn('Erreur chargement Heatmap :', err);
+      }
+    };
+
+    loadMarketHoldings();
+    const interval = setInterval(loadMarketHoldings, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Définition d'éléments de secours réalistes si l'API est en cours de chargement
+  const defaultItems = [
+    { symbol: 'AAPL', category: 'Tech', currentPrice: 189.4, changePercent: 1.45 },
+    { symbol: 'NVDA', category: 'Tech', currentPrice: 893.4, changePercent: 3.23 },
+    { symbol: 'MSFT', category: 'Tech', currentPrice: 420.2, changePercent: -0.65 },
+    { symbol: 'SPY', category: 'Finance', currentPrice: 534.9, changePercent: 0.43 },
+    { symbol: 'QQQ', category: 'Tech', currentPrice: 448.2, changePercent: -0.28 },
+    { symbol: 'DIA', category: 'Industrie', currentPrice: 391.2, changePercent: 0.15 },
+  ];
+
+  const items = holdings.length >= 6 ? holdings : defaultItems;
+
+  const formatPrice = (price?: number) =>
+    price ? `${price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}$` : '';
 
   return (
     <View
       style={[
         styles.widgetCard,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderColor: theme['colors_button_outline-border'] ?? '#E5E7EB',
+          backgroundColor: colors['colors_bg_secondary'],
+          borderColor: colors['colors_button_outline-border'],
+          borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
+          borderWidth: primitives['border width_border-thin'] ?? 1,
+          padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+          gap: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
         },
       ]}
     >
@@ -36,82 +79,84 @@ export const MarketHeatmapWidget: React.FC<MarketHeatmapWidgetProps> = ({
       <Text
         style={[
           styles.widgetTitle,
-          { color: theme['colors_text_primary'] ?? '#0B0F19' },
+          {
+            color: colors['colors_text_primary'],
+            fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+            lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+          },
         ]}
       >
         {title}
       </Text>
 
-      {/* 2. Grille Treemap Asymétrique prenant tout l'espace disponible */}
+      {/* 2. Grille Treemap avec actifs réels différenciés */}
       <View style={styles.gridContainer}>
-        {/* Ligne du haut : Grande tuile à gauche + 2 tuiles superposées à droite */}
+        {/* Ligne du haut */}
         <View style={styles.topSection}>
-          {/* Tuile Haute Gauche */}
           <HeatmapTile
-            symbol="NVDA"
-            sector="Tech"
-            changePercent={3.23}
-            price="893,40$"
-            direction="up"
+            symbol={items[0].symbol}
+            sector={items[0].category}
+            changePercent={items[0].changePercent}
+            price={formatPrice(items[0].currentPrice)}
+            direction={items[0].changePercent >= 0 ? 'up' : 'down'}
             bottomLayout="stacked"
-            onPress={() => onAssetPress?.('NVDA')}
+            onPress={() => onAssetPress?.(items[0].symbol)}
             style={styles.largeTile}
           />
 
-          {/* Colonne Droite : 2 tuiles empilées */}
           <View style={styles.rightColumn}>
             <HeatmapTile
-              symbol="NVDA"
-              sector="Tech"
-              changePercent={3.23}
-              price="893,40$"
-              direction="up"
+              symbol={items[1].symbol}
+              sector={items[1].category}
+              changePercent={items[1].changePercent}
+              price={formatPrice(items[1].currentPrice)}
+              direction={items[1].changePercent >= 0 ? 'up' : 'down'}
               bottomLayout="stacked"
-              onPress={() => onAssetPress?.('NVDA')}
+              onPress={() => onAssetPress?.(items[1].symbol)}
               style={styles.mediumTile}
             />
             <HeatmapTile
-              symbol="NVDA"
-              sector="Tech"
-              changePercent={3.23}
-              price="893,40$"
-              direction="down"
+              symbol={items[2].symbol}
+              sector={items[2].category}
+              changePercent={items[2].changePercent}
+              price={formatPrice(items[2].currentPrice)}
+              direction={items[2].changePercent >= 0 ? 'up' : 'down'}
               bottomLayout="stacked"
-              onPress={() => onAssetPress?.('NVDA')}
+              onPress={() => onAssetPress?.(items[2].symbol)}
               style={styles.mediumTile}
             />
           </View>
         </View>
 
-        {/* Ligne du bas : 3 tuiles horizontales */}
+        {/* Ligne du bas */}
         <View style={styles.bottomSection}>
           <HeatmapTile
-            symbol="NVDA"
-            sector="Tech"
-            changePercent={-3.23}
-            price="893,40$"
-            direction="down"
+            symbol={items[3].symbol}
+            sector={items[3].category}
+            changePercent={items[3].changePercent}
+            price={formatPrice(items[3].currentPrice)}
+            direction={items[3].changePercent >= 0 ? 'up' : 'down'}
             bottomLayout="split"
-            onPress={() => onAssetPress?.('NVDA')}
+            onPress={() => onAssetPress?.(items[3].symbol)}
             style={styles.bottomSplitTile}
           />
           <HeatmapTile
-            symbol="NVDA"
-            sector="Tech"
-            changePercent={-3.23}
-            price="893,40$"
-            direction="up"
+            symbol={items[4].symbol}
+            sector={items[4].category}
+            changePercent={items[4].changePercent}
+            price={formatPrice(items[4].currentPrice)}
+            direction={items[4].changePercent >= 0 ? 'up' : 'down'}
             bottomLayout="split"
-            onPress={() => onAssetPress?.('NVDA')}
+            onPress={() => onAssetPress?.(items[4].symbol)}
             style={styles.bottomSplitTile}
           />
           <HeatmapTile
-            symbol="NVDA"
-            changePercent={3.23}
-            price=""
-            direction="down"
+            symbol={items[5].symbol}
+            changePercent={items[5].changePercent}
+            price={formatPrice(items[5].currentPrice)}
+            direction={items[5].changePercent >= 0 ? 'up' : 'down'}
             bottomLayout="stacked"
-            onPress={() => onAssetPress?.('NVDA')}
+            onPress={() => onAssetPress?.(items[5].symbol)}
             style={styles.bottomSmallTile}
           />
         </View>
@@ -126,7 +171,11 @@ export const MarketHeatmapWidget: React.FC<MarketHeatmapWidgetProps> = ({
         <Text
           style={[
             styles.viewAllText,
-            { color: theme['colors_text_primary'] ?? '#0B0F19' },
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
           ]}
         >
           Voir tout &gt;
@@ -140,17 +189,11 @@ const styles = StyleSheet.create({
   widgetCard: {
     width: '100%',
     height: '100%',
-    minWidth: 440,
-    borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
-    padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    gap: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+    minWidth: 0,
     justifyContent: 'space-between',
     overflow: 'hidden',
   },
   widgetTitle: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
@@ -202,11 +245,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   viewAllText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '700',
   },
   pressed: {
     opacity: 0.7,
   },
 });
+
+export default MarketHeatmapWidget;

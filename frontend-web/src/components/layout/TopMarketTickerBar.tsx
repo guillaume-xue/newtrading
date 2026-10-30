@@ -1,7 +1,6 @@
 'use client';
 
-// components/TopMarketTickerBar.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,14 +8,12 @@ import {
   Easing,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
   LayoutChangeEvent,
 } from 'react-native';
 
 import { MarketTickerItem, MarketTickerItemProps } from '@/components/features/market/components/MarketTickerItem';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { fetchScreenerData } from '@/lib/api/marketApi';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface TickerData extends MarketTickerItemProps {
   id: string | number;
@@ -26,38 +23,58 @@ export interface TopMarketTickerBarProps {
   isMarketOpen?: boolean;
   statusLabel?: string;
   timezone?: string;
-  items?: TickerData[];
-  speed?: number;
+  speed?: number; // Vitesse en pixels par seconde
   style?: ViewStyle;
 }
-
-const DEFAULT_TICKERS: TickerData[] = [
-  { id: '1', name: 'S&P 500', price: 5349.10, changePercent: -0.43 },
-  { id: '2', name: 'NASDAQ', price: 18240.20, changePercent: 0.85 },
-  { id: '3', name: 'DAX 40', price: 18321.12, changePercent: 0.43 },
-  { id: '4', name: 'CAC 40', price: 7632.40, changePercent: -0.12 },
-  { id: '5', name: 'DOW JONES', price: 39120.00, changePercent: -0.28 },
-  { id: '6', name: 'FTSE 100', price: 8245.50, changePercent: 0.15 },
-];
 
 export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
   isMarketOpen = true,
   statusLabel = 'Marchés ouverts',
   timezone = 'UTC+2',
-  items = DEFAULT_TICKERS,
-  speed = 45,
+  speed = 40,
   style,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
-  const [contentWidth, setContentWidth] = useState(0);
-  const [animatedMarquee] = useState(() => new Animated.Value(0));
+  const [tickers, setTickers] = useState<TickerData[]>([]);
+  const [groupWidth, setGroupWidth] = useState(0);
 
-  // Animation du clignotement
-  const [pulseAnim] = useState(() => new Animated.Value(1));
+  const animatedMarquee = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 1. Boucle de clignotement du point vert
+  // 1. Récupération des données réelles du marché
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRealQuotes = async () => {
+      try {
+        const data = await fetchScreenerData();
+        if (isMounted && data && data.length > 0) {
+          const mapped: TickerData[] = data.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.currentPrice,
+            changePercent: item.changePercent,
+            priceDecimals: item.category === 'CRYPTO' ? 2 : 2,
+          }));
+          setTickers(mapped);
+        }
+      } catch (err) {
+        console.warn('Erreur chargement ticker bar :', err);
+      }
+    };
+
+    loadRealQuotes();
+    const refreshInterval = setInterval(loadRealQuotes, 15000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(refreshInterval);
+    };
+  }, []);
+
+  // 2. Clignotement fluide du voyant d'état
   useEffect(() => {
     if (!isMarketOpen) {
       pulseAnim.setValue(1);
@@ -82,63 +99,71 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
     );
 
     blinkAnimation.start();
-
     return () => blinkAnimation.stop();
   }, [isMarketOpen, pulseAnim]);
 
-  // 2. Défilement horizontal des indices
-  const handleLayout = (event: LayoutChangeEvent) => {
+  // 3. Mesure de la largeur d'une séquence pour la boucle continue
+  const handleGroupLayout = (event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
-    if (width > 0 && width !== contentWidth) {
-      setContentWidth(width);
+    if (width > 0 && Math.abs(width - groupWidth) > 1) {
+      setGroupWidth(width);
     }
   };
 
+  // 4. Défilement continu infini sans à-coup
   useEffect(() => {
-    if (contentWidth === 0) return;
+    if (groupWidth === 0) return;
 
     animatedMarquee.setValue(0);
-    const duration = (contentWidth / speed) * 1000;
+    const duration = (groupWidth / speed) * 1000;
 
-    const loopAnimation = Animated.loop(
+    const scrollAnimation = Animated.loop(
       Animated.timing(animatedMarquee, {
-        toValue: -contentWidth,
-        duration: duration,
+        toValue: -groupWidth,
+        duration,
         easing: Easing.linear,
         useNativeDriver: false,
       })
     );
 
-    loopAnimation.start();
+    scrollAnimation.start();
+    return () => scrollAnimation.stop();
+  }, [groupWidth, speed, animatedMarquee]);
 
-    return () => loopAnimation.stop();
-  }, [contentWidth, speed, animatedMarquee]);
+  const dotColor = isMarketOpen
+    ? colors['colors_button_buy']
+    : colors['colors_button_sell'];
+
+  const gapSize = primitives['spacing & layout_padding & margin_space-6'] ?? 24;
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderBottomColor: theme['colors_divider_text'] ?? '#D1D5DB',
+          backgroundColor: colors['colors_bg_secondary'],
+          borderBottomColor: colors['colors_divider_text'],
+          borderBottomWidth: primitives['border width_border-thin'] ?? 1,
         },
         style,
       ]}
     >
-      {/* 1. Bloc fixe avec voyant clignotant */}
+      {/* 1. Statut fixe à gauche */}
       <View
         style={[
           styles.statusSection,
-          { backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF' },
+          {
+            backgroundColor: colors['colors_bg_secondary'],
+            paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+            gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+          },
         ]}
       >
         <Animated.View
           style={[
             styles.statusDot,
             {
-              backgroundColor: isMarketOpen
-                ? (theme['colors_button_buy'] ?? '#059669')
-                : (theme['colors_button_sell'] ?? '#DC2626'),
+              backgroundColor: dotColor,
               opacity: pulseAnim,
               transform: [
                 {
@@ -155,7 +180,11 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
         <Text
           style={[
             styles.statusText,
-            { color: theme['colors_text_primary'] ?? '#0B0F19' },
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+              lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+            },
           ]}
           numberOfLines={1}
         >
@@ -165,13 +194,19 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
         <View
           style={[
             styles.timezoneBadge,
-            { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+            {
+              backgroundColor: colors['colors_bg_primary'],
+              borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
+            },
           ]}
         >
           <Text
             style={[
               styles.timezoneText,
-              { color: theme['colors_text_primary'] ?? '#0B0F19' },
+              {
+                color: colors['colors_text_primary'],
+                fontSize: primitives['typography_font size_font-size-10'] ?? 10,
+              },
             ]}
           >
             {timezone}
@@ -181,45 +216,81 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
         <View
           style={[
             styles.divider,
-            { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
+            {
+              backgroundColor: colors['colors_divider_text'],
+              marginLeft: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
+            },
           ]}
         />
       </View>
 
-      {/* 2. Flux défilant */}
+      {/* 2. Zone de défilement infini */}
       <View style={styles.marqueeViewport}>
-        <Animated.View
-          style={[
-            styles.tickerTrack,
-            {
-              transform: [{ translateX: animatedMarquee }],
-            },
-          ]}
-        >
-          <View style={styles.tickerGroup} onLayout={handleLayout}>
-            {items.map((ticker) => (
-              <MarketTickerItem
-                key={`a-${ticker.id}`}
-                name={ticker.name}
-                price={ticker.price}
-                changePercent={ticker.changePercent}
-                priceDecimals={ticker.priceDecimals}
-              />
-            ))}
-          </View>
+        {tickers.length > 0 && (
+          <Animated.View
+            style={[
+              styles.tickerTrack,
+              {
+                transform: [{ translateX: animatedMarquee }],
+              },
+            ]}
+          >
+            {/* Premier bloc mesuré */}
+            <View
+              style={[
+                styles.tickerGroup,
+                { gap: gapSize, paddingRight: gapSize },
+              ]}
+              onLayout={handleGroupLayout}
+            >
+              {tickers.map((ticker) => (
+                <MarketTickerItem
+                  key={`quote-a-${ticker.id}`}
+                  name={ticker.name}
+                  price={ticker.price}
+                  changePercent={ticker.changePercent}
+                  priceDecimals={ticker.priceDecimals}
+                />
+              ))}
+            </View>
 
-          <View style={styles.tickerGroup}>
-            {items.map((ticker) => (
-              <MarketTickerItem
-                key={`b-${ticker.id}`}
-                name={ticker.name}
-                price={ticker.price}
-                changePercent={ticker.changePercent}
-                priceDecimals={ticker.priceDecimals}
-              />
-            ))}
-          </View>
-        </Animated.View>
+            {/* Deuxième bloc (relais sans coupure) */}
+            <View
+              style={[
+                styles.tickerGroup,
+                { gap: gapSize, paddingRight: gapSize },
+              ]}
+            >
+              {tickers.map((ticker) => (
+                <MarketTickerItem
+                  key={`quote-b-${ticker.id}`}
+                  name={ticker.name}
+                  price={ticker.price}
+                  changePercent={ticker.changePercent}
+                  priceDecimals={ticker.priceDecimals}
+                />
+              ))}
+            </View>
+
+            {/* Troisième bloc (garantie anti-vide pour écrans larges) */}
+            <View
+              style={[
+                styles.tickerGroup,
+                { gap: gapSize, paddingRight: gapSize },
+              ]}
+            >
+              {tickers.map((ticker) => (
+                <MarketTickerItem
+                  key={`quote-c-${ticker.id}`}
+                  name={ticker.name}
+                  price={ticker.price}
+                  changePercent={ticker.changePercent}
+                  priceDecimals={ticker.priceDecimals}
+                />
+              ))}
+            </View>
+          </Animated.View>
+        )}
       </View>
     </View>
   );
@@ -236,10 +307,8 @@ const styles = StyleSheet.create({
   statusSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
     zIndex: 2,
     elevation: 2,
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
   },
   statusDot: {
     width: 8,
@@ -247,25 +316,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
     fontWeight: '600',
   },
   timezoneBadge: {
     paddingVertical: 2,
     paddingHorizontal: 6,
-    borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
   timezoneText: {
-    fontSize: primitives['typography_font size_font-size-10'] ?? 10,
     fontWeight: '700',
   },
   divider: {
     width: 1,
     height: 16,
-    marginLeft: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   marqueeViewport: {
     flex: 1,
@@ -280,7 +344,7 @@ const styles = StyleSheet.create({
   tickerGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
-    paddingRight: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
   },
 });
+
+export default TopMarketTickerBar;

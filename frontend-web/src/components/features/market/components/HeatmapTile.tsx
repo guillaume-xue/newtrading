@@ -1,63 +1,30 @@
-// components/HeatmapTile.tsx
-import React from 'react';
+'use client';
+
+// components/features/market/components/HeatmapTile.tsx
+import React, { useMemo } from 'react';
 import {
   Pressable,
   View,
   Text,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
 } from 'react-native';
 
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export type HeatmapDirection = 'up' | 'down';
 export type HeatmapBottomLayout = 'stacked' | 'split';
 
 export interface HeatmapTileProps {
-  /**
-   * Symbole de l'actif (ex: "NVDA")
-   */
   symbol: string;
-  /**
-   * Secteur ou catégorie d'activité (ex: "Tech")
-   */
   sector?: string;
-  /**
-   * Variation en pourcentage (ex: 3.23 ou -3.23 ou "+3,23%")
-   */
   changePercent: number | string;
-  /**
-   * Cours actuel sous forme numérique ou texte (ex: 893.40 ou "893,40$")
-   */
   price: number | string;
-  /**
-   * Forcer la couleur (hausse/baisse). Si omis, déterminé automatiquement selon changePercent.
-   */
   direction?: HeatmapDirection;
-  /**
-   * Disposition de la section inférieure :
-   * - 'stacked' : pourcentage au-dessus du prix (en bas à gauche)
-   * - 'split' : pourcentage à gauche, prix à droite
-   */
   bottomLayout?: HeatmapBottomLayout;
-  /**
-   * Symbole monétaire (par défaut "$")
-   */
   currency?: string;
-  /**
-   * Nombre de décimales pour les montants
-   */
   decimals?: number;
-  /**
-   * Action au clic sur la tuile
-   */
   onPress?: () => void;
-  /**
-   * Styles personnalisés pour le conteneur
-   */
   style?: ViewStyle;
 }
 
@@ -73,19 +40,16 @@ export const HeatmapTile: React.FC<HeatmapTileProps> = ({
   onPress,
   style,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
-  // 1. Détermination de la couleur (hausse = vert, baisse = rouge)
-  const isUp =
-    direction !== undefined
-      ? direction === 'up'
-      : typeof changePercent === 'number'
-      ? changePercent >= 0
-      : !String(changePercent).trim().startsWith('-');
+  const isUp = useMemo(() => {
+    if (direction !== undefined) return direction === 'up';
+    if (typeof changePercent === 'number') return changePercent >= 0;
+    return !String(changePercent).trim().startsWith('-');
+  }, [direction, changePercent]);
 
-  // 2. Formatage des valeurs
-  const formattedPercent = (() => {
+  const formattedPercent = useMemo(() => {
     if (typeof changePercent === 'number') {
       const sign = changePercent >= 0 ? '+' : '';
       const formatted = changePercent.toLocaleString('fr-FR', {
@@ -95,9 +59,9 @@ export const HeatmapTile: React.FC<HeatmapTileProps> = ({
       return `${sign}${formatted}%`;
     }
     return changePercent;
-  })();
+  }, [changePercent, decimals]);
 
-  const formattedPrice = (() => {
+  const formattedPrice = useMemo(() => {
     if (typeof price === 'number') {
       const formatted = price.toLocaleString('fr-FR', {
         minimumFractionDigits: decimals,
@@ -106,13 +70,13 @@ export const HeatmapTile: React.FC<HeatmapTileProps> = ({
       return `${formatted}${currency}`;
     }
     return price;
-  })();
+  }, [price, decimals, currency]);
 
   const backgroundColor = isUp
-    ? theme['colors_tile_up-bg']
-    : theme['colors_tile_down-bg'];
+    ? colors['colors_tile_up-bg']
+    : colors['colors_tile_down-bg'];
 
-  const textColor = theme['colors_tile_text'] ?? '#FFFFFF';
+  const textColor = colors['colors_tile_text'];
 
   return (
     <Pressable
@@ -120,12 +84,15 @@ export const HeatmapTile: React.FC<HeatmapTileProps> = ({
       disabled={!onPress}
       style={({ pressed }) => [
         styles.tile,
-        { backgroundColor },
+        {
+          backgroundColor,
+          borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 10,
+          padding: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+        },
         pressed && styles.pressed,
         style,
       ]}
     >
-      {/* En-tête : Ticker à gauche, Secteur à droite */}
       <View style={styles.headerRow}>
         <Text style={[styles.symbolText, { color: textColor }]} numberOfLines={1}>
           {symbol}
@@ -137,24 +104,32 @@ export const HeatmapTile: React.FC<HeatmapTileProps> = ({
         ) : null}
       </View>
 
-      {/* Pied : Répartition stacked ou split */}
       {bottomLayout === 'split' ? (
         <View style={styles.splitBottomRow}>
           <Text style={[styles.percentText, { color: textColor }]} numberOfLines={1}>
             {formattedPercent}
           </Text>
-          <Text style={[styles.priceText, { color: textColor }]} numberOfLines={1}>
-            {formattedPrice}
-          </Text>
+          {Boolean(formattedPrice) && (
+            <Text style={[styles.priceText, { color: textColor }]} numberOfLines={1}>
+              {formattedPrice}
+            </Text>
+          )}
         </View>
       ) : (
-        <View style={styles.stackedBottomCol}>
+        <View
+          style={[
+            styles.stackedBottomCol,
+            { gap: primitives['spacing & layout_padding & margin_space-1'] ?? 2 },
+          ]}
+        >
           <Text style={[styles.percentText, { color: textColor }]} numberOfLines={1}>
             {formattedPercent}
           </Text>
-          <Text style={[styles.priceText, { color: textColor }]} numberOfLines={1}>
-            {formattedPrice}
-          </Text>
+          {Boolean(formattedPrice) && (
+            <Text style={[styles.priceText, { color: textColor }]} numberOfLines={1}>
+              {formattedPrice}
+            </Text>
+          )}
         </View>
       )}
     </Pressable>
@@ -163,11 +138,10 @@ export const HeatmapTile: React.FC<HeatmapTileProps> = ({
 
 const styles = StyleSheet.create({
   tile: {
-    width: 156,
-    height: 156,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 12,
-    padding: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+    width: '100%',
+    minWidth: 0,
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   pressed: {
     opacity: 0.9,
@@ -177,37 +151,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 4,
   },
   symbolText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   sectorText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: '600',
     opacity: 0.9,
   },
   stackedBottomCol: {
     alignItems: 'flex-start',
-    gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   splitBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    gap: 4,
   },
   percentText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   priceText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '500',
     opacity: 0.95,
+    fontVariant: ['tabular-nums'],
   },
 });
+
+export default HeatmapTile;

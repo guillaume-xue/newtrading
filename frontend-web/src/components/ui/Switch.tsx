@@ -1,19 +1,19 @@
-import React, { useRef, useEffect } from 'react';
+'use client';
+
+import React, { useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Pressable,
   Animated,
   StyleSheet,
   Platform,
-  useColorScheme,
 } from 'react-native';
 import Image from 'next/image';
 
 import Stats from '@/assets/icons/stats.svg';
 import ChatArrowGrow from '@/assets/icons/chat-arrow-grow.svg';
 
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
+import { useAppTheme } from '@/theme/ThemeContext';
 import { primitives } from '@/theme/generated/primitives';
 
 export interface SwitchProps {
@@ -27,15 +27,15 @@ const SWITCH_HEIGHT = 48;
 const PADDING = 4;
 const THUMB_WIDTH = (SWITCH_WIDTH - PADDING * 2) / 2; // 44px
 const THUMB_HEIGHT = SWITCH_HEIGHT - PADDING * 2;     // 40px
-const TRANSLATE_DISTANCE = THUMB_WIDTH;               // Distance de glissement (44px)
+const TRANSLATE_DISTANCE = THUMB_WIDTH;               // 44px
 
 export const Switch: React.FC<SwitchProps> = ({
   value,
   onChange,
   disabled = false,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, isDark } = theme;
 
   // 0 = gauche, 1 = droite
   const animatedValue = useRef(new Animated.Value(value === 'left' ? 0 : 1)).current;
@@ -56,21 +56,25 @@ export const Switch: React.FC<SwitchProps> = ({
     outputRange: [0, TRANSLATE_DISTANCE],
   });
 
+  const iconFilter = useMemo(() => {
+    return isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
+  }, [isDark]);
+
   return (
     <View
       style={[
         styles.track,
         {
-          backgroundColor: theme['colors_button_ghost'] ?? '#E6E9EE',
+          backgroundColor: colors['colors_button_ghost'],
         },
       ]}
     >
-      {/* Curseur blanc coulissant */}
+      {/* Curseur coulissant */}
       <Animated.View
         style={[
           styles.thumb,
           {
-            backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
+            backgroundColor: colors['colors_bg_secondary'],
             transform: [{ translateX }],
           },
         ]}
@@ -89,7 +93,7 @@ export const Switch: React.FC<SwitchProps> = ({
           width={20}
           height={20}
           alt="Vue graphique barres"
-          style={styles.icon}
+          style={{ ...styles.icon, filter: iconFilter }}
         />
       </Pressable>
 
@@ -106,7 +110,7 @@ export const Switch: React.FC<SwitchProps> = ({
           width={20}
           height={20}
           alt="Vue graphique linéaire"
-          style={styles.icon}
+          style={{ ...styles.icon, filter: iconFilter }}
         />
       </Pressable>
     </View>
@@ -153,3 +157,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+export default Switch;

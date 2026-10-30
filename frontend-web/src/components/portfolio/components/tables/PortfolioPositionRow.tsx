@@ -1,13 +1,12 @@
-// components/table/PortfolioPositionRow.tsx
-import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, useColorScheme } from 'react-native';
+'use client';
+
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { MarketTickerInfo } from '@/components/features/market/components/MarketTickerInfo';
 import { FinancialValue } from '@/components/ui/FinancialValue';
 import { PercentageBadge } from '@/components/ui/PercentageBadge';
 import { Button } from '@/components/ui/Button';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface PortfolioPositionRowProps {
   countryOrCategory: string;
@@ -38,36 +37,43 @@ export const PortfolioPositionRow: React.FC<PortfolioPositionRowProps> = ({
   onManagePress,
   style,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
-  const formattedAveragePrice =
-    typeof averagePrice === 'number'
+  const formattedAveragePrice = useMemo(() => {
+    return typeof averagePrice === 'number'
       ? `${averagePrice.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
       : averagePrice;
+  }, [averagePrice]);
 
-  const formattedCurrentPrice =
-    typeof currentPrice === 'number'
+  const formattedCurrentPrice = useMemo(() => {
+    return typeof currentPrice === 'number'
       ? `${currentPrice.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
       : currentPrice;
+  }, [currentPrice]);
 
-  const formattedValuation =
-    typeof valuation === 'number'
+  const formattedValuation = useMemo(() => {
+    return typeof valuation === 'number'
       ? `${valuation.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
       : valuation;
+  }, [valuation]);
 
-  const formattedQuantity =
-    typeof quantity === 'number'
+  const formattedQuantity = useMemo(() => {
+    return typeof quantity === 'number'
       ? `${quantity.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${quantityUnit}`
       : `${quantity} ${quantityUnit}`;
+  }, [quantity, quantityUnit]);
 
   return (
     <View
       style={[
         styles.row,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderBottomColor: theme['colors_divider_text'] ?? '#E5E7EB',
+          backgroundColor: colors['colors_bg_secondary'],
+          borderBottomColor: colors['colors_divider_text'],
+          paddingVertical: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+          paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+          borderBottomWidth: primitives['border width_border-thin'] ?? 1,
         },
         style,
       ]}
@@ -84,24 +90,60 @@ export const PortfolioPositionRow: React.FC<PortfolioPositionRowProps> = ({
 
       {/* 2. Prix Moyen (PRU) */}
       <View style={styles.colNumber}>
-        <Text style={[styles.mainValueText, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.mainValueText,
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
+          ]}
+        >
           {formattedAveragePrice}
         </Text>
       </View>
 
       {/* 3. Cours Actuel */}
       <View style={styles.colNumber}>
-        <Text style={[styles.mainValueText, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.mainValueText,
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
+          ]}
+        >
           {formattedCurrentPrice}
         </Text>
       </View>
 
       {/* 4. Quantité & Valorisation */}
       <View style={styles.colValuation}>
-        <Text style={[styles.mainValueText, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.mainValueText,
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
+          ]}
+        >
           {formattedValuation}
         </Text>
-        <Text style={[styles.subValueText, { color: theme['colors_text_secondary'] ?? '#9CA3AF' }]}>
+        <Text
+          style={[
+            styles.subValueText,
+            {
+              color: colors['colors_text_secondary'],
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+              lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+            },
+          ]}
+        >
           {formattedQuantity}
         </Text>
       </View>
@@ -139,9 +181,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    borderBottomWidth: primitives['border width_border-thin'] ?? 1,
     minHeight: 68,
   },
   colAsset: {
@@ -175,14 +214,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mainValueText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '700',
     letterSpacing: -0.2,
+    fontVariant: ['tabular-nums'],
   },
   subValueText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
     fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
 });
+
+export default PortfolioPositionRow;

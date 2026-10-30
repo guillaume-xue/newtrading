@@ -1,14 +1,13 @@
 'use client';
 
+// src/components/layout/FeatureComingSoon.tsx
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { Button } from '@/components/ui/Button';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface FeatureComingSoonProps {
   title: string;
@@ -24,14 +23,14 @@ export const FeatureComingSoon: React.FC<FeatureComingSoonProps> = ({
   activeNavId,
 }) => {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
 
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor: theme['colors_bg_primary'] ?? '#F8FAFC' },
+        { backgroundColor: colors['colors_bg_primary'] },
       ]}
     >
       <AppHeader activeNavId={activeNavId} />
@@ -41,19 +40,55 @@ export const FeatureComingSoon: React.FC<FeatureComingSoonProps> = ({
           style={[
             styles.card,
             {
-              backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-              borderColor: theme['colors_divider_text'] ?? '#E2E8F0',
+              backgroundColor: colors['colors_bg_secondary'],
+              borderColor: colors['colors_divider_text'],
+              borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 12,
+              borderWidth: primitives['border width_border-thin'] ?? 1,
+              ...Platform.select({
+                web: {
+                  boxShadow: isDark
+                    ? '0 8px 32px rgba(0, 0, 0, 0.5)'
+                    : '0 8px 24px rgba(0, 0, 0, 0.06)',
+                } as any,
+                default: {
+                  elevation: 4,
+                },
+              }),
             },
           ]}
         >
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Bientôt disponible • {targetVersion}</Text>
+          {/* Badge statut */}
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(37, 99, 235, 0.2)'
+                  : '#EFF6FF',
+                borderColor: isDark
+                  ? 'rgba(37, 99, 235, 0.4)'
+                  : '#BFDBFE',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                { color: colors['colors_badge_primary-action-bg'] },
+              ]}
+            >
+              Bientôt disponible • {targetVersion}
+            </Text>
           </View>
 
           <Text
             style={[
               styles.title,
-              { color: theme['colors_text_primary'] ?? '#0B0F19' },
+              {
+                color: colors['colors_text_primary'],
+                fontSize: primitives['typography_font size_font-size-24'] ?? 24,
+                lineHeight: primitives['typography_line height_line-height-32'] ?? 32,
+              },
             ]}
           >
             {title}
@@ -62,7 +97,11 @@ export const FeatureComingSoon: React.FC<FeatureComingSoonProps> = ({
           <Text
             style={[
               styles.description,
-              { color: theme['colors_text_secondary'] ?? '#64748B' },
+              {
+                color: colors['colors_text_secondary'],
+                fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+              },
             ]}
           >
             {description}
@@ -108,16 +147,10 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 520,
-    borderRadius: 12,
-    borderWidth: 1,
     padding: 36,
     alignItems: 'center',
-    textAlign: 'center',
-    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.05)',
   },
   badge: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -125,19 +158,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   badgeText: {
-    color: '#2563EB',
     fontSize: 12,
     fontWeight: '700',
   },
   title: {
-    fontSize: 22,
     fontWeight: '800',
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: -0.4,
   },
   description: {
-    fontSize: 14,
-    lineHeight: 20,
     textAlign: 'center',
     marginBottom: 24,
     maxWidth: 420,
@@ -147,3 +177,5 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 });
+
+export default FeatureComingSoon;

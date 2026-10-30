@@ -1,15 +1,13 @@
-// src/components/Divider.tsx
+'use client';
+
 import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
 } from 'react-native';
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface DividerProps {
   label?: string;
@@ -17,11 +15,11 @@ export interface DividerProps {
 }
 
 export const Divider: React.FC<DividerProps> = ({ label, style }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
-  const lineColor = theme['colors_divider_text'] ?? '#E0E3EB';
-  const textColor = theme['colors_divider_text'] ?? '#8C93A3';
+  const lineColor = colors['colors_divider_text'];
+  const textColor = colors['colors_text_secondary'];
 
   return (
     <View style={[styles.container, style]}>
@@ -43,17 +41,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginVertical: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+    marginVertical: 16,
   },
   line: {
     flex: 1,
-    height: primitives['border width_border-thin'] ?? 1,
+    height: 1,
   },
   label: {
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
-    fontWeight: '400',
+    paddingHorizontal: 12,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
     textAlign: 'center',
   },
 });

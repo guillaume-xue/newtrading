@@ -1,4 +1,3 @@
-// screens/TradeScreen.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
@@ -16,17 +15,23 @@ import { AlertPanel } from '@/components/features/market/components/AlertPanel';
 import { CreateAlertModal } from '@/components/features/market/components/CreateAlertModal';
 import { OrderFormPanel } from '@/components/portfolio/components/OrderFormPanel';
 import { tradeApi, PnLData } from '@/lib/api/tradeApi';
+import { QuoteModel } from '@/lib/api/marketApi';
+import { useMarketStream } from '@/lib/hooks/useMarketStream';
+import { useAppTheme } from '@/theme/ThemeContext';
 import { TimeRange } from '@/types/timeRange';
 
 const TradeScreenContent: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlSymbol = searchParams.get('symbol');
-  const symbol = urlSymbol ? urlSymbol.toUpperCase() : 'BTC/USD';
+  const rawSymbol = searchParams.get('symbol') || 'AAPL';
+  const symbol = rawSymbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  const { theme } = useAppTheme();
+  const { colors, isDark } = theme;
 
   const [searchValue, setSearchValue] = useState<string>(symbol);
   const [activeTool, setActiveTool] = useState<ChartTool>('crosshair');
-  const [selectedRange, setSelectedRange] = useState<TimeRange>('1D');
+  const [selectedRange, setSelectedRange] = useState<TimeRange>('3M');
   const [chartType, setChartType] = useState<'candlestick' | 'area'>('candlestick');
   const [chartAreaBounds, setChartAreaBounds] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [pnlData, setPnlData] = useState<PnLData | null>(null);
@@ -34,11 +39,46 @@ const TradeScreenContent: React.FC = () => {
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [alertRefreshKey, setAlertRefreshKey] = useState(0);
 
-  const currentPrice = 63432.5;
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
+  const [baselinePrice, setBaselinePrice] = useState<number>(0);
 
   useEffect(() => {
     setSearchValue(symbol);
+    setBaselinePrice(0);
   }, [symbol]);
+
+  const handleChartPriceChange = useCallback((price: number, basePrice?: number) => {
+    if (price <= 0) return;
+    setCurrentPrice(price);
+
+    if (basePrice && basePrice > 0) {
+      setBaselinePrice(basePrice);
+      const diff = ((price - basePrice) / basePrice) * 100;
+      setPriceChangePercent(diff);
+    } else if (baselinePrice > 0) {
+      const diff = ((price - baselinePrice) / baselinePrice) * 100;
+      setPriceChangePercent(diff);
+    }
+  }, [baselinePrice]);
+
+  const handlePriceUpdate = useCallback((quote: QuoteModel) => {
+    if (quote && quote.price != null) {
+      const p = Number(quote.price);
+      setCurrentPrice(p);
+      if (quote.changePercent != null) {
+        setPriceChangePercent(Number(quote.changePercent));
+      } else if (baselinePrice > 0) {
+        setPriceChangePercent(((p - baselinePrice) / baselinePrice) * 100);
+      }
+    }
+  }, [baselinePrice]);
+
+  useMarketStream({
+    symbol,
+    onPriceUpdate: handlePriceUpdate,
+    enabled: true,
+  });
 
   const toggleChartType = () => {
     setChartType((prev) => (prev === 'candlestick' ? 'area' : 'candlestick'));
@@ -62,20 +102,17 @@ const TradeScreenContent: React.FC = () => {
       const res = await loadPortfolio();
       setPnlData(res);
     } catch {
-      // Ignoré pour conserver les valeurs de secours
+      // Ignoré
     }
   }, [loadPortfolio]);
 
   useEffect(() => {
     let isMounted = true;
-
     loadPortfolio()
       .then((res) => {
         if (isMounted) setPnlData(res);
       })
-      .catch(() => {
-        // Ignoré pour conserver les valeurs de secours
-      });
+      .catch(() => {});
 
     return () => {
       isMounted = false;
@@ -84,8 +121,9 @@ const TradeScreenContent: React.FC = () => {
 
   const handleSearchChange = (newSymbol: string) => {
     setSearchValue(newSymbol);
-    if (newSymbol.trim()) {
-      router.push(`/trade?symbol=${encodeURIComponent(newSymbol.trim().toUpperCase())}`);
+    const cleaned = newSymbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    if (cleaned) {
+      router.push(`/trade?symbol=${encodeURIComponent(cleaned)}`);
     }
   };
 
@@ -93,8 +131,12 @@ const TradeScreenContent: React.FC = () => {
     ? `${pnlData.currentBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
     : '100 000,00 $';
 
+  const isPositive = priceChangePercent >= 0;
+  const priceColor = isPositive ? colors['colors_badge_up'] : colors['colors_badge_down'];
+  const iconFilter = isDark ? 'brightness(0) invert(1) opacity(0.8)' : 'brightness(0) opacity(0.7)';
+
   return (
-    <View style={styles.screenContainer}>
+    <View style={[styles.screenContainer, { backgroundColor: colors['colors_bg_primary'] }]}>
       <AppHeader
         variant="chart"
         searchValue={searchValue}
@@ -109,46 +151,93 @@ const TradeScreenContent: React.FC = () => {
         onAlertPress={() => setActiveRightTab('alerts')}
       />
 
-      <View style={styles.workspace}>
-        <View style={styles.chartArea} onLayout={handleChartAreaLayout}>
-          <ChartToolbar
-            activeTool={activeTool}
-            onSelectTool={setActiveTool}
-            bounds={chartAreaBounds}
-          />
+      <View
+        style={[
+          styles.workspace,
+          {
+            backgroundColor: colors['colors_bg_secondary'],
+            borderTopColor: colors['colors_divider_text'],
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.chartArea,
+            {
+              backgroundColor: colors['colors_bg_secondary'],
+              borderRightColor: colors['colors_divider_text'],
+            },
+          ]}
+          onLayout={handleChartAreaLayout}
+        >
+          <View style={styles.toolbarContainer}>
+            <ChartToolbar
+              activeTool={activeTool}
+              onSelectTool={setActiveTool}
+              bounds={chartAreaBounds}
+            />
+          </View>
 
           <View style={styles.tickerOverlay}>
-            <Text style={styles.tickerSymbol}>{symbol}</Text>
-            <View style={styles.badgePill}>
-              <Text style={styles.badgePillText}>PERP</Text>
-            </View>
-            <Text style={styles.tickerPrice}>
-              {currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            <Text style={[styles.tickerSymbol, { color: colors['colors_text_primary'] }]}>
+              {symbol}
             </Text>
-            <Text style={styles.tickerPercent}>+2.5%</Text>
+            <View style={[styles.badgePill, { backgroundColor: colors['colors_bg_primary'] }]}>
+              <Text style={[styles.badgePillText, { color: colors['colors_text_secondary'] }]}>
+                SPOT
+              </Text>
+            </View>
+            <Text style={[styles.tickerPrice, { color: priceColor }]}>
+              {currentPrice > 0
+                ? currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '---'}
+            </Text>
+            <Text style={[styles.tickerPercent, { color: priceColor }]}>
+              {priceChangePercent !== 0
+                ? `${isPositive ? '+' : ''}${priceChangePercent.toFixed(2)}%`
+                : '0.00%'}
+            </Text>
           </View>
 
           <TradingChart
             symbol={symbol}
-            themeMode="light"
+            themeMode={isDark ? 'dark' : 'light'}
             chartType={chartType}
             activeTool={activeTool}
             selectedRange={selectedRange}
+            onPriceChange={handleChartPriceChange}
           />
         </View>
 
         {activeRightTab === 'order' && (
-          <View style={styles.orderPanelColumn}>
+          <View
+            style={[
+              styles.orderPanelColumn,
+              {
+                backgroundColor: colors['colors_bg_secondary'],
+                borderRightColor: colors['colors_divider_text'],
+              },
+            ]}
+          >
             <OrderFormPanel
               assetCode={symbol}
               currentPrice={currentPrice}
-              availableBalance={1.0}
+              availableBalance={pnlData?.currentBalance ?? 100000.0}
               onOrderSuccess={fetchPortfolio}
             />
           </View>
         )}
+
         {activeRightTab === 'alerts' && (
-          <View style={styles.orderPanelColumn}>
+          <View
+            style={[
+              styles.orderPanelColumn,
+              {
+                backgroundColor: colors['colors_bg_secondary'],
+                borderRightColor: colors['colors_divider_text'],
+              },
+            ]}
+          >
             <AlertPanel
               key={alertRefreshKey}
               assetCode={symbol}
@@ -157,19 +246,30 @@ const TradeScreenContent: React.FC = () => {
           </View>
         )}
 
-        <View style={styles.rightIconSidebar}>
+        <View
+          style={[
+            styles.rightIconSidebar,
+            { backgroundColor: colors['colors_bg_secondary'] },
+          ]}
+        >
           <TouchableOpacity
-            style={[styles.sidebarIconBtn, activeRightTab === 'order' && styles.sidebarIconActive]}
+            style={[
+              styles.sidebarIconBtn,
+              activeRightTab === 'order' && { backgroundColor: colors['colors_bg_primary'] },
+            ]}
             onPress={() => toggleRightPanel('order')}
           >
-            <Image src={walletIcon} width={20} height={20} alt="Ordre" style={styles.iconTint} />
+            <Image src={walletIcon} width={20} height={20} alt="Ordre" style={{ filter: iconFilter }} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.sidebarIconBtn, activeRightTab === 'alerts' && styles.sidebarIconActive]}
+            style={[
+              styles.sidebarIconBtn,
+              activeRightTab === 'alerts' && { backgroundColor: colors['colors_bg_primary'] },
+            ]}
             onPress={() => toggleRightPanel('alerts')}
           >
-            <Image src={alarmClockIcon} width={20} height={20} alt="Alertes" style={styles.iconTint} />
+            <Image src={alarmClockIcon} width={20} height={20} alt="Alertes" style={{ filter: iconFilter }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -197,24 +297,25 @@ const styles = StyleSheet.create({
   screenContainer: {
     width: '100%',
     height: '100vh',
-    backgroundColor: '#F3F4F6',
     flexDirection: 'column',
     overflow: 'hidden',
   },
   workspace: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
     marginTop: 1,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
   },
   chartArea: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
+  },
+  toolbarContainer: {
+    position: 'absolute',
+    left: 16,
+    top: 48,
+    zIndex: 20,
   },
   tickerOverlay: {
     position: 'absolute',
@@ -228,10 +329,8 @@ const styles = StyleSheet.create({
   tickerSymbol: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#0B0F19',
   },
   badgePill: {
-    backgroundColor: '#F3F4F6',
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 4,
@@ -239,27 +338,23 @@ const styles = StyleSheet.create({
   badgePillText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#6B7280',
   },
   tickerPrice: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#009F6B',
+    fontVariant: ['tabular-nums'],
   },
   tickerPercent: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#009F6B',
+    fontVariant: ['tabular-nums'],
   },
   orderPanelColumn: {
     width: 400,
-    backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
   },
   rightIconSidebar: {
     width: 44,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     paddingTop: 12,
     gap: 16,
@@ -270,12 +365,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  sidebarIconActive: {
-    backgroundColor: '#F3F4F6',
-  },
-  iconTint: {
-    filter: 'brightness(0) opacity(0.7)',
   },
 });
 

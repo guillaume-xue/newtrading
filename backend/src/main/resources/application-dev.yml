@@ -2,10 +2,12 @@ server:
   port: 8080
 
 spring:
+  config:
+    import: optional:file:../.env[.properties]
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/newtrading}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:secretpassword}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB:newtrading}}
+    username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:secretpassword}}
     driver-class-name: org.postgresql.Driver
   jpa:
     show-sql: true
@@ -19,6 +21,7 @@ spring:
     locations: classpath:db/migration
   docker:
     compose:
+      enabled: false
       file: ../docker-compose.yml
 
 springdoc:

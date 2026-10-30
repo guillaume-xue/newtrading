@@ -1,12 +1,32 @@
-import * as DarkTokens from './generated/dark';
-import * as LightTokens from './generated/light';
-import * as Primitives from './generated/primitives';
+import { darkColors } from './generated/dark';
+import { lightColors } from './generated/light';
+import { primitives } from './generated/primitives';
 
-export const Theme = {
-  primitives: Primitives,
-  dark: DarkTokens,
-  light: LightTokens,
+// 1. Définition du contrat sémantique
+export type ThemeColors = typeof darkColors | typeof lightColors;
+export type PrimitivesTokens = typeof primitives;
+
+export interface AppTheme {
+  colors: ThemeColors;
+  primitives: PrimitivesTokens;
+  isDark: boolean;
+}
+
+// 2. Thèmes complets
+export const darkTheme: AppTheme = {
+  colors: darkColors,
+  primitives,
+  isDark: true,
 };
 
-// Hook simple si tu utilises un state de thème ou useColorScheme() de React Native
-export type ColorTheme = typeof DarkTokens;
+export const lightTheme: AppTheme = {
+  colors: lightColors,
+  primitives,
+  isDark: false,
+};
+
+// 3. Export statique pour usages hors composants (ex: configuration de Lightweight Charts)
+export const themes = {
+  dark: darkTheme,
+  light: lightTheme,
+} as const;
