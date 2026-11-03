@@ -6,12 +6,14 @@ export interface PlaceOrderPayload {
   quantity: number;
 }
 
-export interface SimulatedTransactionResponse {
+export interface TransactionResponse {
   id: string;
+  portfolioId: string;
   assetCode: string;
   orderDirection: 'BUY' | 'SELL';
   quantity: number;
   executionPrice: number;
+  totalAmount: number;
   executedAt: string;
 }
 
@@ -32,8 +34,8 @@ export interface PageResponse<T> {
 }
 
 export const tradeApi = {
-  placeOrder: async (payload: PlaceOrderPayload): Promise<SimulatedTransactionResponse> => {
-    const { data } = await httpClient.post<SimulatedTransactionResponse>('/trades', payload);
+  placeOrder: async (payload: PlaceOrderPayload): Promise<TransactionResponse> => {
+    const { data } = await httpClient.post<TransactionResponse>('/trades', payload);
     return data;
   },
 
@@ -42,8 +44,8 @@ export const tradeApi = {
     return data;
   },
 
-  getOrderHistory: async (page = 0, size = 20): Promise<PageResponse<SimulatedTransactionResponse>> => {
-    const { data } = await httpClient.get<PageResponse<SimulatedTransactionResponse>>(
+  getOrderHistory: async (page = 0, size = 20): Promise<PageResponse<TransactionResponse>> => {
+    const { data } = await httpClient.get<PageResponse<TransactionResponse>>(
       `/trades/history?page=${page}&size=${size}`
     );
     return data;

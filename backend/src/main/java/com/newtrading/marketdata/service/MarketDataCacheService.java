@@ -6,9 +6,11 @@ import com.newtrading.marketdata.dto.QuoteDto;
 import com.newtrading.marketdata.dto.ScreenerItemDto;
 import com.newtrading.marketdata.model.MarketCandle;
 import com.newtrading.marketdata.repository.MarketCandleRepository;
+import com.newtrading.shared.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -61,29 +63,29 @@ public class MarketDataCacheService {
             ScreenerItemDto.builder().id("24").name("BNB").symbol("BNBUSDT").category("CRYPTO").build()
     );
 
-    @Cacheable(value = "stockHistory", key = "#symbol.toUpperCase()", sync = true)
+    /**
+     * 1. Vérifie si des bougies réelles sont archivées en PostgreSQL.
+     * 2. Si non, appelle l'API distante (Polygon) et enregistre les vraies bougies en base.
+     * 3. Si l'API et la base ne renvoient rien : génère des données de repli en mémoire pour l'affichage UI (non sauvegardées en base).
+     */
     public List<CandleDto> getDailyHistory(String symbol) {
-        String cleanSymbol = symbol.toUpperCase();
+        String cleanSymbol = symbol.toUpperCase().trim();
         log.info("Chargement historique pour {}", cleanSymbol);
 
-        // 1. Consultation des vraies bougies déjà archivées en base
+        // 1. Consultation des vraies bougies en base PostgreSQL
         try {
             List<MarketCandle> existingCandles = candleRepository
                     .findByAssetCodeAndTimeframeOrderByOpenTimeAsc(cleanSymbol, "1D");
 
             if (!existingCandles.isEmpty()) {
-                MarketCandle latest = existingCandles.get(existingCandles.size() - 1);
-                // Si la dernière bougie a moins de 24h, on sert le cache DB
-                if (latest.getOpenTime().isAfter(Instant.now().minus(24, ChronoUnit.HOURS))) {
-                    log.info("DB Hit pour {} ({} vraies bougies en base)", cleanSymbol, existingCandles.size());
-                    return existingCandles.stream().map(this::toCandleDto).toList();
-                }
+                log.info("DB Hit pour {} : {} bougies réelles trouvées en PostgreSQL", cleanSymbol, existingCandles.size());
+                return existingCandles.stream().map(this::toCandleDto).toList();
             }
         } catch (Exception e) {
             log.warn("Lecture DB impossible pour {} ({}) — tentative via API externe", cleanSymbol, e.getMessage());
         }
 
-        // 2. Appel API externe (Polygon)
+        // 2. Appel externe Polygon si la base est vide
         List<CandleDto> realCandles = null;
         try {
             realCandles = stockApiClient.fetchDailyHistory(cleanSymbol);
@@ -91,28 +93,57 @@ public class MarketDataCacheService {
             log.warn("Fournisseur externe indisponible ou quota atteint pour {} ({})", cleanSymbol, e.getMessage());
         }
 
-        // 3. Persistance STRICTE : uniquement si l'API a retourné des données réelles
+        // 3. Persistance en base si l'API a retourné de vraies bougies
         if (realCandles != null && !realCandles.isEmpty()) {
             persistCandles(cleanSymbol, "1D", realCandles);
             return realCandles;
         }
 
-        // 4. Repli mémoire temporaire : données simulées envoyées au front, MAIS JAMAIS SAUVEGARDÉES EN BASE
-        log.info("Génération de données de secours en mémoire pour {} (non persistées)", cleanSymbol);
+        // 4. Cas de repli : l'API et la DB n'ont rien -> génération de secours pour l'affichage du graphique
+        log.info("API et DB indisponibles pour {} -> génération de données simulées de secours (non persistées)", cleanSymbol);
         return generateFallbackCandles(cleanSymbol);
     }
 
+    /**
+     * Cotation pour la consultation UI :
+     * 1. Tente l'API Polygon.
+     * 2. Sinon, cherche la dernière clôture en base de données.
+     * 3. Sinon, génère une cotation simulée pour l'affichage du ticker.
+     */
     @Cacheable(value = "stockQuote", key = "#symbol.toUpperCase()", sync = true)
     public QuoteDto getQuote(String symbol) {
-        String cleanSymbol = symbol.toUpperCase();
+        String cleanSymbol = symbol.toUpperCase().trim();
+
+        // 1. Appel Polygon
         try {
             QuoteDto quote = stockApiClient.fetchQuote(cleanSymbol);
-            if (quote != null && quote.getPrice() != null) {
+            if (quote != null && quote.getPrice() != null && quote.getPrice().compareTo(BigDecimal.ZERO) > 0) {
                 return quote;
             }
         } catch (Exception e) {
-            log.warn("Cotation distante indisponible pour {} — repli sur valeur estimée", cleanSymbol);
+            log.warn("Cotation distante indisponible pour {} — recherche de la dernière clôture en base", cleanSymbol);
         }
+
+        // 2. Repli DB
+        try {
+            List<MarketCandle> candles = candleRepository
+                    .findByAssetCodeAndTimeframeOrderByOpenTimeAsc(cleanSymbol, "1D");
+            if (!candles.isEmpty()) {
+                MarketCandle latest = candles.get(candles.size() - 1);
+                return QuoteDto.builder()
+                        .symbol(cleanSymbol)
+                        .price(latest.getClosePrice())
+                        .change(BigDecimal.ZERO)
+                        .changePercent(BigDecimal.ZERO)
+                        .volume(latest.getVolume())
+                        .timestamp(latest.getOpenTime())
+                        .build();
+            }
+        } catch (Exception e) {
+            log.warn("Erreur recherche DB pour quote {} : {}", cleanSymbol, e.getMessage());
+        }
+
+        // 3. Repli généré si rien n'est disponible
         return generateFallbackQuote(cleanSymbol);
     }
 
@@ -121,17 +152,7 @@ public class MarketDataCacheService {
         log.info("Agrégation des données Screener mise en cache");
         return SCREENER_UNIVERSE.stream()
                 .map(item -> {
-                    QuoteDto quote = null;
-                    try {
-                        quote = stockApiClient.fetchQuote(item.getSymbol());
-                    } catch (Exception e) {
-                        log.debug("Quote direct échouée pour {} : {}", item.getSymbol(), e.getMessage());
-                    }
-
-                    if (quote == null || quote.getPrice() == null) {
-                        quote = generateFallbackQuote(item.getSymbol());
-                    }
-
+                    QuoteDto quote = getQuote(item.getSymbol());
                     return ScreenerItemDto.builder()
                             .id(item.getId())
                             .name(item.getName())
@@ -144,6 +165,58 @@ public class MarketDataCacheService {
                             .build();
                 })
                 .toList();
+    }
+
+    /**
+     * RÈGLE STRICTE PAPER TRADING (ANTI-TRICHE) :
+     * Valide un ordre UNIQUEMENT sur un cours réel issu de Polygon ou de la table PostgreSQL.
+     * Ne bascule JAMAIS sur les données générées.
+     */
+    public QuoteDto getCertifiedQuoteForExecution(String symbol) {
+        String cleanSymbol = symbol.toUpperCase().trim();
+
+        // 1. Cotation Polygon en direct (clôture de la dernière séance)
+        try {
+            QuoteDto quote = stockApiClient.fetchQuote(cleanSymbol);
+            if (quote != null && quote.getPrice() != null && quote.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+                log.info("Cours certifié Polygon validé pour {} : {} $", cleanSymbol, quote.getPrice());
+                return quote;
+            }
+        } catch (Exception e) {
+            log.warn("Cotation distante indisponible pour {} ({}) — tentative de repli sur la base PostgreSQL", cleanSymbol, e.getMessage());
+        }
+
+        // 2. Repli certifié sur la dernière bougie réelle archivée dans market_candles
+        try {
+            List<MarketCandle> candles = candleRepository
+                    .findByAssetCodeAndTimeframeOrderByOpenTimeAsc(cleanSymbol, "1D");
+
+            if (!candles.isEmpty()) {
+                MarketCandle latest = candles.get(candles.size() - 1);
+                if (latest.getClosePrice() != null && latest.getClosePrice().compareTo(BigDecimal.ZERO) > 0) {
+                    log.info("Cours certifié récupéré depuis la base de données pour {} : {} $ (date: {})",
+                            cleanSymbol, latest.getClosePrice(), latest.getOpenTime());
+
+                    return QuoteDto.builder()
+                            .symbol(cleanSymbol)
+                            .price(latest.getClosePrice())
+                            .change(BigDecimal.ZERO)
+                            .changePercent(BigDecimal.ZERO)
+                            .volume(latest.getVolume())
+                            .timestamp(latest.getOpenTime())
+                            .build();
+                }
+            }
+        } catch (Exception e) {
+            log.error("Échec de lecture des bougies certifiées en base pour {} : {}", cleanSymbol, e.getMessage());
+        }
+
+        // 3. Rejet strict si aucune vraie donnée n'existe
+        throw new BusinessException(
+                "Impossible d'exécuter l'ordre : cours de marché certifié indisponible pour " + cleanSymbol,
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "MARKET_DATA_UNAVAILABLE"
+        );
     }
 
     private void persistCandles(String assetCode, String timeframe, List<CandleDto> dtos) {
@@ -175,7 +248,7 @@ public class MarketDataCacheService {
 
             if (!toSave.isEmpty()) {
                 candleRepository.saveAll(toSave);
-                log.info("{} vraies bougies de l'API enregistrées pour {}", toSave.size(), assetCode);
+                log.info("{} vraies bougies enregistrées pour {}", toSave.size(), assetCode);
             }
         } catch (Exception e) {
             log.error("Échec persistance bougies pour {} (non-bloquant) : {}", assetCode, e.getMessage());

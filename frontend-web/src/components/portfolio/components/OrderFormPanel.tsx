@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import { isAxiosError } from 'axios';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
@@ -11,14 +10,15 @@ import { WidgetHeader } from '@/components/ui/WidgetHeader';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { useAppTheme } from '@/theme/ThemeContext';
-import { SimulatedTransactionResponse, tradeApi } from '@/lib/api/tradeApi';
+import { TransactionResponse, tradeApi } from '@/lib/api/tradeApi';
+import { ApiProblemError } from '@/lib/api/httpClient';
 
 interface OrderFormPanelProps {
   assetCode: string;
   currentPrice: number;
   availableBalance: number;
   onOrderSuccess: () => void;
-  initialHistory?: SimulatedTransactionResponse[];
+  initialHistory?: TransactionResponse[];
 }
 
 export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
@@ -30,29 +30,17 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
 }) => {
   const { isAuthenticated } = useAuthStore();
   const { theme } = useAppTheme();
-  const { colors, primitives } = theme;
+  const { colors } = theme;
 
   const [direction, setDirection] = useState<'BUY' | 'SELL'>('BUY');
-  const [price, setPrice] = useState<string>('0.00');
   const [size, setSize] = useState<string>('1.00');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [history, setHistory] = useState<SimulatedTransactionResponse[]>(initialHistory ?? []);
+  const [history, setHistory] = useState<TransactionResponse[]>(initialHistory ?? []);
   const [historyLoading, setHistoryLoading] = useState<boolean>(!initialHistory);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
-
-  useEffect(() => {
-    if (currentPrice > 0) {
-      setPrice(
-        currentPrice.toLocaleString('en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      );
-    }
-  }, [currentPrice]);
 
   const loadHistory = useCallback(async () => {
     if (!isAuthenticated) {
@@ -67,10 +55,11 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
       const response = await tradeApi.getOrderHistory(0, 10);
       setHistory(response.content);
     } catch (error: unknown) {
-      const message = isAxiosError(error)
-        ? error.response?.data?.message
-        : undefined;
-      setHistoryError(message ?? 'Impossible de charger l’historique');
+      if (error instanceof ApiProblemError) {
+        setHistoryError(error.detail);
+      } else {
+        setHistoryError('Impossible de charger l’historique');
+      }
     } finally {
       setHistoryLoading(false);
     }
@@ -115,10 +104,24 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
         await loadHistory();
       }
     } catch (error: unknown) {
-      const message = isAxiosError(error)
-        ? error.response?.data?.message
-        : undefined;
-      setErrorMessage(message ?? 'Erreur d’exécution de l’ordre');
+      if (error instanceof ApiProblemError) {
+        // Traitement ciblé des codes métiers Spring Boot
+        switch (error.code) {
+          case 'INSUFFICIENT_FUNDS':
+            setErrorMessage('Solde insuffisant pour exécuter cet achat.');
+            break;
+          case 'INSUFFICIENT_POSITION':
+            setErrorMessage('Position détenue insuffisante pour vendre cet actif.');
+            break;
+          case 'MARKET_DATA_UNAVAILABLE':
+            setErrorMessage('Cours boursier réel indisponible. Veuillez réessayer plus tard.');
+            break;
+          default:
+            setErrorMessage(error.detail || 'Erreur lors de l’exécution.');
+        }
+      } else {
+        setErrorMessage('Une erreur réseau est survenue.');
+      }
     } finally {
       setLoading(false);
     }
@@ -169,12 +172,11 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
         <View style={styles.fieldWrapper}>
           <InputField
             label="Price (USD)"
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="decimal-pad"
+            value={formattedLivePrice}
+            editable={false}
             suffix={
               <Text style={[styles.suffixText, { color: colors['colors_text_secondary'] }]}>
-                Limite
+                Marché
               </Text>
             }
             style={[styles.fieldInput, { color: colors['colors_text_primary'] }]}
@@ -189,7 +191,7 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
             keyboardType="decimal-pad"
             suffix={
               <Text style={[styles.suffixText, { color: colors['colors_text_secondary'] }]}>
-                Available: {availableBalance.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}
+                Dispo: {availableBalance.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}
               </Text>
             }
             style={[styles.fieldInput, { color: colors['colors_text_primary'] }]}
@@ -200,7 +202,7 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
           <View style={styles.feedbackRow}>
             <ActivityIndicator size="small" color={colors['colors_button_buy']} />
             <Text style={[styles.feedbackText, { color: colors['colors_text_secondary'] }]}>
-              Exécution en cours…
+              Exécution au cours du marché en cours…
             </Text>
           </View>
         )}

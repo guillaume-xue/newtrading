@@ -205,7 +205,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     });
   }, [isDrawingActive, inlineEditor, disableZoom, sparkline]);
 
-  // 2. Nettoyage, Dédoublonnage et Tri Chronologique Strict
+  // 2. Nettoyage, Dédoublonnage et Parsing Robuste des Données Réelles
   useEffect(() => {
     let isMounted = true;
 
@@ -217,18 +217,39 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         const data: CandleModel[] = await fetchMarketHistory(cleanSymbol);
 
         if (Array.isArray(data) && data.length > 0) {
-          // Utilisation d'une Map indexée par timestamp arrondi à la seconde pour éliminer tout doublon
           const uniqueCandlesMap = new Map<number, CandlestickData>();
 
-          data.forEach((item) => {
-            const timeInSeconds = Math.floor(new Date(item.timestamp).getTime() / 1000);
-            if (!isNaN(timeInSeconds)) {
+          data.forEach((item: any) => {
+            let timeInSeconds: number;
+
+            // Détection universelle : millisecondes, secondes UNIX ou format ISO standard
+            if (typeof item.timestamp === 'number') {
+              timeInSeconds = item.timestamp > 1e11
+                ? Math.floor(item.timestamp / 1000)
+                : Math.floor(item.timestamp);
+            } else if (typeof item.timestamp === 'string') {
+              const num = Number(item.timestamp);
+              if (!isNaN(num) && !item.timestamp.includes('-') && !item.timestamp.includes('T')) {
+                timeInSeconds = num > 1e11 ? Math.floor(num / 1000) : Math.floor(num);
+              } else {
+                timeInSeconds = Math.floor(new Date(item.timestamp).getTime() / 1000);
+              }
+            } else {
+              return;
+            }
+
+            const open = parseFloat(String(item.open));
+            const high = parseFloat(String(item.high));
+            const low = parseFloat(String(item.low));
+            const close = parseFloat(String(item.close));
+
+            if (!isNaN(timeInSeconds) && !isNaN(close) && close > 0) {
               uniqueCandlesMap.set(timeInSeconds, {
                 time: timeInSeconds as UTCTimestamp,
-                open: Number(item.open),
-                high: Number(item.high),
-                low: Number(item.low),
-                close: Number(item.close),
+                open: isNaN(open) ? close : open,
+                high: isNaN(high) ? close : high,
+                low: isNaN(low) ? close : low,
+                close: close,
               });
             }
           });
@@ -274,15 +295,15 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [cleanSymbol, chartType]);
+  }, [cleanSymbol, chartType, onPriceChange]);
 
-  // 3. Réception sécurisée des ticks en direct
+  // 3. Réception des cotations en direct
   const handleLiveQuote = useCallback(
     (quote: QuoteModel) => {
       if (!seriesRef.current || candlesDataRef.current.length === 0) return;
 
       const price = Number(quote.price);
-      if (isNaN(price)) return;
+      if (isNaN(price) || price <= 0) return;
 
       onPriceChange?.(price);
 
@@ -290,7 +311,13 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       const lastIndex = currentCandles.length - 1;
       const lastCandle = currentCandles[lastIndex];
 
-      const quoteTime = Math.floor(new Date(quote.timestamp).getTime() / 1000) as UTCTimestamp;
+      let quoteTime: UTCTimestamp;
+      if (typeof (quote as any).timestamp === 'number') {
+        const num = (quote as any).timestamp;
+        quoteTime = (num > 1e11 ? Math.floor(num / 1000) : Math.floor(num)) as UTCTimestamp;
+      } else {
+        quoteTime = Math.floor(new Date(quote.timestamp).getTime() / 1000) as UTCTimestamp;
+      }
 
       if (chartType === 'area') {
         const areaUpdate = {
@@ -301,7 +328,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         return;
       }
 
-      // Si le tick appartient à une nouvelle bougie
       if (quoteTime > (lastCandle.time as number)) {
         const newCandle: CandlestickData = {
           time: quoteTime,
@@ -313,7 +339,6 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         currentCandles.push(newCandle);
         (seriesRef.current as ISeriesApi<'Candlestick'>).update(newCandle);
       } else {
-        // Mise à jour de la bougie en cours
         const updatedCandle: CandlestickData = {
           time: lastCandle.time,
           open: lastCandle.open,

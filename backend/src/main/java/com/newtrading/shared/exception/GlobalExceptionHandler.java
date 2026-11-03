@@ -24,6 +24,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
         problem.setTitle("Erreur Métier");
         problem.setType(URI.create("urn:problem-type:business-error"));
+        problem.setProperty("code", ex.getErrorCode());
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
@@ -36,6 +37,7 @@ public class GlobalExceptionHandler {
         );
         problem.setTitle("Trop de Requêtes");
         problem.setType(URI.create("urn:problem-type:rate-limit-exceeded"));
+        problem.setProperty("code", "RATE_LIMIT_EXCEEDED");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
@@ -48,6 +50,7 @@ public class GlobalExceptionHandler {
         );
         problem.setTitle("Service Indisponible");
         problem.setType(URI.create("urn:problem-type:circuit-breaker-open"));
+        problem.setProperty("code", "CIRCUIT_BREAKER_OPEN");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
@@ -62,6 +65,7 @@ public class GlobalExceptionHandler {
         for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
             errors.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
+        problem.setProperty("code", "VALIDATION_FAILED");
         problem.setProperty("errors", errors);
         problem.setProperty("timestamp", Instant.now());
         return problem;
@@ -72,6 +76,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
         problem.setTitle("Erreur d'Authentification");
         problem.setType(URI.create("urn:problem-type:unauthorized"));
+        problem.setProperty("code", "UNAUTHORIZED");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
@@ -81,6 +86,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Accès interdit");
         problem.setTitle("Accès Interdit");
         problem.setType(URI.create("urn:problem-type:forbidden"));
+        problem.setProperty("code", "FORBIDDEN");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
@@ -90,6 +96,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Une erreur inattendue est survenue");
         problem.setTitle("Erreur Interne");
         problem.setType(URI.create("urn:problem-type:internal-server-error"));
+        problem.setProperty("code", "INTERNAL_SERVER_ERROR");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
