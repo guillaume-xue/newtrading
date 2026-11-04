@@ -1,11 +1,12 @@
-// screens/AuthSelectionScreen.tsx
-import React, { useState } from 'react';
+'use client';
+
+// src/screens/AuthSelectionScreen.tsx
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  useColorScheme,
   ScrollView,
 } from 'react-native';
 import Image from 'next/image';
@@ -15,9 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Divider } from '@/components/ui/Divider';
 import { SignUpModal } from '@/components/auth/SignUpModal';
 import { LoginModal } from '@/components/auth/LoginModal';
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export type AuthModalType = 'login' | 'signup' | null;
 
@@ -34,8 +33,9 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
   onAuthSuccess,
   onBack,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
+
   const [activeModal, setActiveModal] = useState<AuthModalType>(null);
 
   const closeModal = () => setActiveModal(null);
@@ -47,12 +47,16 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
     setActiveModal(modal);
   };
 
+  const logoFilter = useMemo(() => {
+    return isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
+  }, [isDark]);
+
   return (
-    <View style={[styles.container, { backgroundColor: theme['colors_bg_secondary'] }]}>
+    <View style={[styles.container, { backgroundColor: colors['colors_bg_secondary'] }]}>
       {/* Bouton retour vers la page principale */}
       {onBack && (
         <Pressable onPress={onBack} style={styles.backButton} hitSlop={12}>
-          <Text style={[styles.backButtonText, { color: theme['colors_text_secondary'] }]}>
+          <Text style={[styles.backButtonText, { color: colors['colors_text_secondary'] }]}>
             ← Retour
           </Text>
         </Pressable>
@@ -68,7 +72,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
             {/* Section Formulaire */}
             <View style={styles.formSection}>
               <View style={styles.titleFrame}>
-                <Text style={[styles.title, { color: theme['colors_text_primary'] }]}>
+                <Text style={[styles.title, { color: colors['colors_text_primary'] }]}>
                   Commencez votre carrière maintenant
                 </Text>
               </View>
@@ -97,36 +101,40 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
 
                 <Divider label="ou" style={styles.divider} />
 
-                {initialModal === 'signup' ? (<Button
-                  label="Créer un compte avec e-mail"
-                  variant="primary"
-                  shape="pill"
-                  size="md"
-                  leftIcon="email"
-                  style={styles.buttonItem}
-                  onPress={() => openModal('signup')}
-                />) : (<Button
-                  label="Se connecter avec e-mail"
-                  variant="primary"
-                  shape="pill"
-                  size="md"
-                  leftIcon="email"
-                  style={styles.buttonItem}
-                  onPress={() => openModal('login')}
-                />)}
+                {initialModal === 'signup' ? (
+                  <Button
+                    label="Créer un compte avec e-mail"
+                    variant="primary"
+                    shape="pill"
+                    size="md"
+                    leftIcon="email"
+                    style={styles.buttonItem}
+                    onPress={() => openModal('signup')}
+                  />
+                ) : (
+                  <Button
+                    label="Se connecter avec e-mail"
+                    variant="primary"
+                    shape="pill"
+                    size="md"
+                    leftIcon="email"
+                    style={styles.buttonItem}
+                    onPress={() => openModal('login')}
+                  />
+                )}
 
                 <View style={styles.conditionContainer}>
-                  <Text style={[styles.legalNotice, { color: theme['colors_text_secondary'] }]}>
+                  <Text style={[styles.legalNotice, { color: colors['colors_text_secondary'] }]}>
                     En continuant, vous acceptez nos{' '}
-                    <Text style={[styles.legalBold, { color: theme['colors_text_primary'] }]}>
+                    <Text style={[styles.legalBold, { color: colors['colors_text_primary'] }]}>
                       Conditions d’utilisation
                     </Text>
                     , notre{' '}
-                    <Text style={[styles.legalBold, { color: theme['colors_text_primary'] }]}>
+                    <Text style={[styles.legalBold, { color: colors['colors_text_primary'] }]}>
                       Politique de confidentialité
                     </Text>{' '}
                     et notre{' '}
-                    <Text style={[styles.legalBold, { color: theme['colors_text_primary'] }]}>
+                    <Text style={[styles.legalBold, { color: colors['colors_text_primary'] }]}>
                       Utilisation des cookies
                     </Text>
                     .
@@ -142,7 +150,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
                 width={369}
                 height={369}
                 alt="NewTrading Logo"
-                style={styles.logoImage}
+                style={{ ...styles.logoImage, filter: logoFilter }}
                 priority
               />
             </View>
@@ -150,18 +158,34 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
 
           {/* Lien Connexion */}
           <View style={styles.textLogin}>
-            <Text style={[styles.loginText, { color: theme['colors_text_primary'] }]}>
-              Vous avez déjà un compte ?
-            </Text>
+            {initialModal === 'signup' ? (
+              <Text style={[styles.loginText, { color: colors['colors_text_secondary'] }]}>
+                Vous avez déjà un compte ?
+              </Text>
+            ) : (
+              <Text style={[styles.loginText, { color: colors['colors_text_secondary'] }]}>
+                Vous n'avez pas encore de compte ?
+              </Text>
+            )}
             {initialModal === 'signup' ? (
               <Pressable onPress={() => changeAuthMode('login')}>
-                <Text style={[styles.loginLink, { color: primitives.color_blue_600 }]}>
+                <Text
+                  style={[
+                    styles.loginLink,
+                    { color: colors['colors_badge_primary-action-bg'] },
+                  ]}
+                >
                   Se connecter
                 </Text>
               </Pressable>
             ) : (
               <Pressable onPress={() => changeAuthMode('signup')}>
-                <Text style={[styles.loginLink, { color: primitives.color_blue_600 }]}>
+                <Text
+                  style={[
+                    styles.loginLink,
+                    { color: colors['colors_badge_primary-action-bg'] },
+                  ]}
+                >
                   S&apos;inscrire
                 </Text>
               </Pressable>
@@ -184,7 +208,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
       />
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -201,20 +225,19 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   backButtonText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
     fontWeight: '600',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-32'],
-    paddingVertical: primitives['spacing & layout_padding & margin_space-8'],
+    paddingHorizontal: 32,
+    paddingVertical: 16,
   },
   sectionLogin: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-20'],
+    gap: 20,
     width: '100%',
     maxWidth: 1184,
   },
@@ -231,7 +254,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     alignItems: 'flex-start',
     justifyContent: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-4'],
+    gap: 16,
   },
   titleFrame: {
     width: 598,
@@ -239,11 +262,11 @@ const styles = StyleSheet.create({
     height: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: primitives['spacing & layout_padding & margin_space-6'],
+    paddingVertical: 24,
   },
   title: {
-    fontSize: primitives['typography_font size_font-size-32'],
-    lineHeight: primitives['typography_line height_line-height-32'],
+    fontSize: 32,
+    lineHeight: 36,
     fontWeight: '700',
     textAlign: 'center',
   },
@@ -251,7 +274,7 @@ const styles = StyleSheet.create({
     width: 384,
     maxWidth: '100%',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-4'],
+    gap: 16,
   },
   buttonItem: {
     width: 384,
@@ -263,13 +286,13 @@ const styles = StyleSheet.create({
   },
   conditionContainer: {
     width: 384,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'],
-    paddingTop: primitives['spacing & layout_padding & margin_space-3'],
+    paddingHorizontal: 16,
+    paddingTop: 12,
     alignItems: 'center',
   },
   legalNotice: {
-    fontSize: primitives['typography_font size_font-size-10'],
-    lineHeight: primitives['typography_line height_line-height-14'],
+    fontSize: 10,
+    lineHeight: 14,
     textAlign: 'center',
   },
   legalBold: {
@@ -294,13 +317,15 @@ const styles = StyleSheet.create({
     height: 52,
   },
   loginText: {
-    fontSize: primitives['typography_font size_font-size-16'],
-    lineHeight: primitives['typography_line height_line-height-20'],
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '400',
   },
   loginLink: {
-    fontSize: primitives['typography_font size_font-size-16'],
+    fontSize: 16,
     lineHeight: 19,
     fontWeight: '600',
   },
 });
+
+export default AuthSelectionScreen;

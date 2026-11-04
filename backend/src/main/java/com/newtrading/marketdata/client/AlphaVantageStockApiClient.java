@@ -52,6 +52,7 @@ public class AlphaVantageStockApiClient implements StockApiClient {
                         .path("/query")
                         .queryParam("function", "TIME_SERIES_DAILY")
                         .queryParam("symbol", symbol)
+                        .queryParam("outputsize", "full")
                         .queryParam("apikey", apiKey)
                         .build())
                 .retrieve()
@@ -139,6 +140,7 @@ public class AlphaVantageStockApiClient implements StockApiClient {
         if (root.has("Note") || root.has("Information")) {
             throw new BusinessException("Quota d'appels Alpha Vantage atteint", HttpStatus.TOO_MANY_REQUESTS);
         }
+
         if (root.has("Error Message")) {
             throw new BusinessException("Symbole boursier invalide", HttpStatus.BAD_REQUEST);
         }

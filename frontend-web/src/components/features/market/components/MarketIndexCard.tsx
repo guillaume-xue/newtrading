@@ -1,11 +1,13 @@
-// components/MarketIndexCard.tsx
-import React from 'react';
+'use client';
+
+// components/features/market/components/MarketIndexCard.tsx
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
+  StyleProp, // <-- Ajout de StyleProp
   TouchableOpacity,
 } from 'react-native';
 
@@ -13,46 +15,19 @@ import { MarketTickerInfo } from '@/components/features/market/components/Market
 import { FinancialValue } from '@/components/ui/FinancialValue';
 import { PercentageBadge } from '@/components/ui/PercentageBadge';
 import { TradingChart } from '@/components/features/market/components/TradingChart';
-
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export type CardType = 'index' | 'stock' | 'crypto';
 
 export interface MarketIndexCardProps {
-  /**
-   * Symbole utilisé pour charger l'historique du mini-graphique.
-   */
   symbol?: string;
-  /**
-   * Catégorie / Pays supérieur (ex: "ALLEMAGNE")[span_1](start_span)[span_1](end_span)
-   */
   countryOrCategory: string;
-  /**
-   * Nom de l'indice (ex: "DAX 40")[span_2](start_span)[span_2](end_span)
-   */
   indexName: string;
-  /**
-   * Valeur principale en points (ex: 18321.12 ou "18 321,12")[span_4](start_span)[span_4](end_span)
-   */
   points: number | string;
-  /**
-   * Unité affichée à côté des points (par défaut: "pts")[span_5](start_span)[span_5](end_span)
-   */
   pointsUnit?: string;
-  /**
-   * Montant équivalent en devise (ex: "2 283,10$")[span_6](start_span)[span_6](end_span)
-   */
   equivalentAmount: number | string;
-  /**
-   * Variation en pourcentage (ex: 0.43 ou "+0,43 %")[span_7](start_span)[span_7](end_span)
-   */
   changePercent: number | string;
-  /**
-   * Style personnalisé pour la carte
-   */
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>; // <-- Corrigé ici
   cardType?: CardType;
   onPress?: () => void;
 }
@@ -69,37 +44,47 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
   cardType = 'index',
   onPress,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
-  const themeMode = scheme === 'dark' ? 'dark' : 'light';
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
 
-  const numericChange =
-  typeof changePercent === 'number'
-    ? changePercent
-    : parseFloat(String(changePercent).replace(',', '.').replace('%', '').trim());
+  const numericChange = useMemo(() => {
+    return typeof changePercent === 'number'
+      ? changePercent
+      : parseFloat(String(changePercent).replace(',', '.').replace('%', '').trim());
+  }, [changePercent]);
 
   const isPositive = !isNaN(numericChange) ? numericChange >= 0 : true;
 
-  // Couleurs conditionnelles (Vert / Rouge)
-  const chartLineColor = isPositive ? '#16A34A' : '#DC2626';
-  const chartTopColor = isPositive ? 'rgba(22, 163, 74, 0.25)' : 'rgba(220, 38, 38, 0.25)';
-  const chartBottomColor = isPositive ? 'rgba(22, 163, 74, 0.0)' : 'rgba(220, 38, 38, 0.0)';
+  // Couleurs dérivées dynamiquement des tokens du thème
+  const chartLineColor = isPositive
+    ? colors['colors_button_buy']
+    : colors['colors_button_sell'];
 
-  const formattedPoints =
-    typeof points === 'number'
+  const chartTopColor = isPositive
+    ? 'rgba(5, 150, 105, 0.25)'
+    : 'rgba(220, 38, 38, 0.25)';
+
+  const chartBottomColor = isPositive
+    ? 'rgba(5, 150, 105, 0.0)'
+    : 'rgba(220, 38, 38, 0.0)';
+
+  const formattedPoints = useMemo(() => {
+    return typeof points === 'number'
       ? points.toLocaleString('fr-FR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })
       : points;
+  }, [points]);
 
-  const formattedAmount =
-    typeof equivalentAmount === 'number'
+  const formattedAmount = useMemo(() => {
+    return typeof equivalentAmount === 'number'
       ? `${equivalentAmount.toLocaleString('fr-FR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}$`
       : equivalentAmount;
+  }, [equivalentAmount]);
 
   return (
     <TouchableOpacity
@@ -108,28 +93,39 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
       style={[
         styles.card,
         {
-          backgroundColor: theme['colors_bg_secondary'],
-          borderColor: theme['colors_button_outline-border'],
+          backgroundColor: colors['colors_bg_secondary'],
+          borderColor: colors['colors_button_outline-border'],
+          borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
+          borderWidth: primitives['border width_border-thin'] ?? 1,
+          padding: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
+          gap: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
         },
         style,
       ]}
     >
       {/* 1. Rangée supérieure : Infos indice, Montant/Variation, et Badge % */}
       <View style={styles.topRow}>
-        {/* Identité de l'indice */}
         <MarketTickerInfo
           title={countryOrCategory}
           subtitle={indexName}
           emphasis="subtitle"
         />
 
-        {/* Montant + Variation */}
         {cardType === 'crypto' && (
-          <View style={styles.amountColumn}>
+          <View
+            style={[
+              styles.amountColumn,
+              { gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4 },
+            ]}
+          >
             <Text
               style={[
                 styles.amountText,
-                { color: theme['colors_text_primary'] },
+                {
+                  color: colors['colors_text_primary'],
+                  fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                  lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+                },
               ]}
               numberOfLines={1}
             >
@@ -143,17 +139,26 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
             />
           </View>
         )}
-        {/* Badge de pourcentage */}
+
         {cardType !== 'crypto' && <PercentageBadge value={changePercent} />}
       </View>
 
       {/* 2. Affichage des points */}
       {cardType !== 'crypto' && (
-        <View style={styles.pointsRow}>
+        <View
+          style={[
+            styles.pointsRow,
+            { gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4 },
+          ]}
+        >
           <Text
             style={[
               styles.pointsValue,
-              { color: theme['colors_text_primary'] },
+              {
+                color: colors['colors_text_primary'],
+                fontSize: primitives['typography_font size_font-size-24'] ?? 24,
+                lineHeight: primitives['typography_line height_line-height-32'] ?? 32,
+              },
             ]}
           >
             {formattedPoints}
@@ -161,7 +166,11 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
           <Text
             style={[
               styles.pointsUnit,
-              { color: theme['colors_text_secondary'] },
+              {
+                color: colors['colors_text_secondary'],
+                fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+              },
             ]}
           >
             {pointsUnit}
@@ -171,10 +180,18 @@ export const MarketIndexCard: React.FC<MarketIndexCardProps> = ({
 
       {/* 3. Mini-graphique (Sparkline) */}
       {cardType === 'index' && (
-        <View style={styles.chartWrapper}>
+        <View
+          style={[
+            styles.chartWrapper,
+            {
+              marginTop: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
+              borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
+            },
+          ]}
+        >
           <TradingChart
             symbol={symbol ?? indexName}
-            themeMode={themeMode}
+            themeMode={isDark ? 'dark' : 'light'}
             chartType="area"
             activeTool="crosshair"
             disableZoom
@@ -194,10 +211,6 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 480,
-    borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
-    padding: primitives['spacing & layout_padding & margin_space-6'] ?? 24,
-    gap: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
   },
   topRow: {
     flexDirection: 'row',
@@ -206,35 +219,29 @@ const styles = StyleSheet.create({
   },
   amountColumn: {
     alignItems: 'flex-start',
-    gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   amountText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
     fontWeight: '700',
     letterSpacing: -0.2,
+    fontVariant: ['tabular-nums'],
   },
   pointsRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   pointsValue: {
-    fontSize: primitives['typography_font size_font-size-24'] ?? 24,
-    lineHeight: primitives['typography_line height_line-height-32'] ?? 32,
     fontWeight: '800',
     letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
   },
   pointsUnit: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
     fontWeight: '500',
   },
   chartWrapper: {
     width: '100%',
     height: 128,
-    marginTop: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
     overflow: 'hidden',
-    borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 4,
   },
 });
+
+export default MarketIndexCard;

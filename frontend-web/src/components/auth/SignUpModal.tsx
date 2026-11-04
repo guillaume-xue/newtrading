@@ -1,4 +1,6 @@
 // components/auth/SignUpModal.tsx
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import {
   Modal,
@@ -6,7 +8,6 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  useColorScheme,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -18,9 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { httpClient } from '@/lib/api/httpClient';
 import { tokenStorage } from '@/lib/auth/tokenStorage';
-import { primitives } from '@/theme/generated/primitives';
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 type SignUpStep = 'email' | 'pwd';
 
@@ -32,7 +31,6 @@ interface SignUpModalProps {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Aligné strictement sur @Pattern de RegisterRequest.java
 const SPECIAL_CHARS_REGEX = /[@#$%^&+=!._-]/;
 
 export const SignUpModal: React.FC<SignUpModalProps> = ({
@@ -41,15 +39,14 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
   onSuccess,
   onNavigateToLogin,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   const [step, setStep] = useState<SignUpStep>('email');
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isEmailAlreadyExists, setIsEmailAlreadyExists] = useState(false);
 
-  // Valeurs du formulaire
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -61,10 +58,8 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
     setIsEmailAlreadyExists(false);
   };
 
-  // Validation Email
   const isEmailValid = useMemo(() => EMAIL_REGEX.test(email.trim()), [email]);
 
-  // Évaluation unitaire de chaque critère de RegisterRequest.java
   const passwordRules = useMemo(() => {
     return [
       { label: '8 à 64 caractères', valid: password.length >= 8 && password.length <= 64 },
@@ -79,7 +74,6 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
     return passwordRules.filter((r) => r.valid).length;
   }, [passwordRules]);
 
-  // Toutes les contraintes Spring Boot sont remplies
   const isPasswordStrong = passedRulesCount === passwordRules.length;
   const isPasswordMatching = password.length > 0 && password === confirmPassword;
   const isPwdStepValid = isPasswordStrong && isPasswordMatching;
@@ -144,13 +138,11 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
     }
   };
 
-  const getStrengthMeta = () => {
+  const strengthMeta = useMemo(() => {
     if (passedRulesCount <= 2) return { color: primitives.color_red_500, label: 'Faible' };
     if (passedRulesCount < 5) return { color: primitives.color_orange_500, label: 'Moyen' };
     return { color: primitives.color_green_500, label: 'Robuste' };
-  };
-
-  const strengthMeta = getStrengthMeta();
+  }, [passedRulesCount, primitives]);
 
   return (
     <Modal
@@ -169,7 +161,11 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: theme['colors_bg_secondary'] ?? primitives.color_neutral_0 },
+              {
+                backgroundColor: colors['colors_bg_secondary'],
+                borderColor: colors['colors_divider_text'],
+                borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+              },
             ]}
           >
             {/* Header */}
@@ -180,7 +176,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                   style={styles.backButton}
                   hitSlop={12}
                 >
-                  <Text style={[styles.backArrow, { color: theme['colors_text_primary'] }]}>
+                  <Text style={[styles.backArrow, { color: colors['colors_text_primary'] }]}>
                     ←
                   </Text>
                 </Pressable>
@@ -207,14 +203,14 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                   <View
                     style={[
                       styles.crossLine,
-                      { backgroundColor: theme['colors_text_primary'] ?? primitives.color_neutral_950 },
+                      { backgroundColor: colors['colors_text_primary'] },
                       { transform: [{ rotate: '45deg' }] },
                     ]}
                   />
                   <View
                     style={[
                       styles.crossLine,
-                      { backgroundColor: theme['colors_text_primary'] ?? primitives.color_neutral_950 },
+                      { backgroundColor: colors['colors_text_primary'] },
                       { transform: [{ rotate: '-45deg' }] },
                     ]}
                   />
@@ -225,18 +221,44 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
             {/* Corps */}
             <View style={styles.body}>
               <View style={styles.inputWrapper}>
-                <Text style={[styles.title, { color: theme['colors_text_primary'] }]}>
+                <Text
+                  style={[
+                    styles.title,
+                    {
+                      color: colors['colors_text_primary'],
+                      fontSize: primitives['typography_font size_font-size-24'] ?? 24,
+                    },
+                  ]}
+                >
                   {step === 'email' ? 'Créer un compte' : 'Sécuriser votre compte'}
                 </Text>
-                <Text style={[styles.subtitle, { color: theme['colors_text_secondary'] }]}>
+                <Text
+                  style={[
+                    styles.subtitle,
+                    {
+                      color: colors['colors_text_secondary'],
+                      fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                    },
+                  ]}
+                >
                   {step === 'email'
                     ? 'Saisissez votre e-mail pour commencer.'
                     : 'Définissez un mot de passe conforme aux règles de sécurité.'}
                 </Text>
 
                 {apiError && (
-                  <View style={styles.errorBanner}>
-                    <Text style={styles.errorText}>{apiError}</Text>
+                  <View
+                    style={[
+                      styles.errorBanner,
+                      {
+                        backgroundColor: colors['colors_badge_down-bg'],
+                        borderColor: colors['colors_badge_down-border'],
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.errorText, { color: colors['colors_badge_down-text'] }]}>
+                      {apiError}
+                    </Text>
                     {isEmailAlreadyExists && onNavigateToLogin && (
                       <Pressable
                         onPress={() => {
@@ -244,7 +266,14 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                           onNavigateToLogin();
                         }}
                       >
-                        <Text style={styles.loginRedirectText}>Se connecter ?</Text>
+                        <Text
+                          style={[
+                            styles.loginRedirectText,
+                            { color: colors['colors_badge_primary-action-bg'] },
+                          ]}
+                        >
+                          Se connecter ?
+                        </Text>
                       </Pressable>
                     )}
                   </View>
@@ -275,7 +304,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                       autoCorrect={false}
                       suffix={
                         <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
-                          <Text style={[styles.togglePwdText, { color: theme['colors_text_secondary'] }]}>
+                          <Text style={[styles.togglePwdText, { color: colors['colors_text_secondary'] }]}>
                             {showPassword ? 'Masquer' : 'Afficher'}
                           </Text>
                         </Pressable>
@@ -285,7 +314,12 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                     {/* Jauge de progression */}
                     {password.length > 0 && (
                       <View style={styles.strengthContainer}>
-                        <View style={styles.strengthBarBackground}>
+                        <View
+                          style={[
+                            styles.strengthBarBackground,
+                            { backgroundColor: primitives.color_neutral_200 },
+                          ]}
+                        >
                           <View
                             style={[
                               styles.strengthBarFill,
@@ -302,7 +336,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                       </View>
                     )}
 
-                    {/* Checklist des exigences Spring Boot */}
+                    {/* Checklist des exigences */}
                     <View style={styles.rulesList}>
                       {passwordRules.map((rule, index) => (
                         <View key={index} style={styles.ruleItem}>
@@ -319,8 +353,8 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
                               styles.ruleText,
                               {
                                 color: rule.valid
-                                  ? theme['colors_text_primary']
-                                  : theme['colors_text_secondary'],
+                                  ? colors['colors_text_primary']
+                                  : colors['colors_text_secondary'],
                               },
                             ]}
                           >
@@ -374,10 +408,10 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: primitives['spacing & layout_padding & margin_space-4'],
+    padding: 16,
   },
   overlayDismiss: {
     ...StyleSheet.absoluteFill,
@@ -391,13 +425,13 @@ const styles = StyleSheet.create({
     width: 520,
     minHeight: 520,
     maxWidth: '100%',
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
     paddingHorizontal: 40,
     paddingVertical: 32,
     flexDirection: 'column',
     justifyContent: 'space-between',
     alignItems: 'center',
-    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.15)',
+    borderWidth: 1,
+    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.25)',
     elevation: 8,
   },
   header: {
@@ -459,31 +493,25 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   title: {
-    fontSize: primitives['typography_font size_font-size-24'],
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: primitives['typography_font size_font-size-14'],
     textAlign: 'center',
     marginBottom: 16,
   },
   errorBanner: {
-    backgroundColor: '#fee2e2',
     padding: 10,
     borderRadius: 6,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#ef4444',
   },
   errorText: {
-    color: '#dc2626',
     fontSize: 12,
     textAlign: 'center',
   },
   loginRedirectText: {
-    color: primitives.color_blue_600,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
@@ -508,7 +536,6 @@ const styles = StyleSheet.create({
   strengthBarBackground: {
     flex: 1,
     height: 4,
-    backgroundColor: primitives.color_neutral_200,
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -553,3 +580,5 @@ const styles = StyleSheet.create({
     height: 48,
   },
 });
+
+export default SignUpModal;

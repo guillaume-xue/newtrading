@@ -1,4 +1,6 @@
 // components/auth/LoginModal.tsx
+'use client';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
@@ -6,7 +8,6 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  useColorScheme,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -16,9 +17,7 @@ import Logo from '@/assets/icons/Logo.svg';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuthStore } from '@/lib/stores/useAuthStore';
-import { primitives } from '@/theme/generated/primitives';
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface LoginModalProps {
   visible: boolean;
@@ -35,8 +34,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onSuccess,
   onNavigateToSignUp,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   const { login, isLoading, error, clearError } = useAuthStore();
 
@@ -65,7 +64,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       handleClose();
       onSuccess();
     } catch {
-      // L'erreur est stockée dans le store useAuthStore
+      // Géré via useAuthStore
     }
   };
 
@@ -86,7 +85,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: theme['colors_bg_secondary'] ?? primitives.color_neutral_0 },
+              {
+                backgroundColor: colors['colors_bg_secondary'],
+                borderColor: colors['colors_divider_text'],
+                borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+              },
             ]}
           >
             {/* Header */}
@@ -106,14 +109,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   <View
                     style={[
                       styles.crossLine,
-                      { backgroundColor: theme['colors_text_primary'] ?? primitives.color_neutral_950 },
+                      { backgroundColor: colors['colors_text_primary'] },
                       { transform: [{ rotate: '45deg' }] },
                     ]}
                   />
                   <View
                     style={[
                       styles.crossLine,
-                      { backgroundColor: theme['colors_text_primary'] ?? primitives.color_neutral_950 },
+                      { backgroundColor: colors['colors_text_primary'] },
                       { transform: [{ rotate: '-45deg' }] },
                     ]}
                   />
@@ -124,16 +127,42 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             {/* Corps */}
             <View style={styles.body}>
               <View style={styles.inputWrapper}>
-                <Text style={[styles.title, { color: theme['colors_text_primary'] }]}>
+                <Text
+                  style={[
+                    styles.title,
+                    {
+                      color: colors['colors_text_primary'],
+                      fontSize: primitives['typography_font size_font-size-24'] ?? 24,
+                    },
+                  ]}
+                >
                   Se connecter
                 </Text>
-                <Text style={[styles.subtitle, { color: theme['colors_text_secondary'] }]}>
+                <Text
+                  style={[
+                    styles.subtitle,
+                    {
+                      color: colors['colors_text_secondary'],
+                      fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                    },
+                  ]}
+                >
                   Accédez à votre espace NewTrading
                 </Text>
 
                 {error && (
-                  <View style={styles.errorBanner}>
-                    <Text style={styles.errorText}>{error}</Text>
+                  <View
+                    style={[
+                      styles.errorBanner,
+                      {
+                        backgroundColor: colors['colors_badge_down-bg'],
+                        borderColor: colors['colors_badge_down-border'],
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.errorText, { color: colors['colors_badge_down-text'] }]}>
+                      {error}
+                    </Text>
                   </View>
                 )}
 
@@ -162,7 +191,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
                 {onNavigateToSignUp && (
                   <View style={styles.footerLinkRow}>
-                    <Text style={[styles.footerText, { color: theme['colors_text_secondary'] }]}>
+                    <Text
+                      style={[
+                        styles.footerText,
+                        {
+                          color: colors['colors_text_secondary'],
+                          fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                        },
+                      ]}
+                    >
                       Pas encore de compte ?
                     </Text>
                     <Pressable
@@ -171,7 +208,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         onNavigateToSignUp();
                       }}
                     >
-                      <Text style={[styles.linkText, { color: primitives.color_blue_600 }]}>
+                      <Text
+                        style={[
+                          styles.linkText,
+                          {
+                            color: colors['colors_badge_primary-action-bg'],
+                            fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+                          },
+                        ]}
+                      >
                         S&apos;inscrire
                       </Text>
                     </Pressable>
@@ -187,7 +232,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 shape="pill"
                 size="md"
                 disabled={!isValid}
-                loading={false}
+                loading={isLoading}
                 style={styles.submitButton}
                 onPress={handleSubmit}
               />
@@ -202,10 +247,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: primitives['spacing & layout_padding & margin_space-4'],
+    padding: 16,
   },
   overlayDismiss: {
     ...StyleSheet.absoluteFill,
@@ -219,12 +264,12 @@ const styles = StyleSheet.create({
     width: 480,
     minHeight: 400,
     maxWidth: '100%',
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
     paddingHorizontal: 40,
     paddingVertical: 32,
     justifyContent: 'space-between',
     alignItems: 'center',
-    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.15)',
+    borderWidth: 1,
+    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.25)',
     elevation: 8,
   },
   header: {
@@ -275,13 +320,11 @@ const styles = StyleSheet.create({
     maxWidth: 380,
   },
   title: {
-    fontSize: primitives['typography_font size_font-size-24'],
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: primitives['typography_font size_font-size-14'],
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -290,15 +333,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   errorBanner: {
-    backgroundColor: '#fee2e2',
     padding: 10,
     borderRadius: 6,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#ef4444',
   },
   errorText: {
-    color: '#dc2626',
     fontSize: 12,
     textAlign: 'center',
   },
@@ -309,11 +349,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     gap: 6,
   },
-  footerText: {
-    fontSize: primitives['typography_font size_font-size-12'],
-  },
+  footerText: {},
   linkText: {
-    fontSize: primitives['typography_font size_font-size-12'],
     fontWeight: '600',
   },
   footer: {
@@ -327,3 +364,5 @@ const styles = StyleSheet.create({
     height: 48,
   },
 });
+
+export default LoginModal;

@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+'use client';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,13 +9,10 @@ import {
   TextInputProps,
   Pressable,
   Platform,
-  useColorScheme,
   Animated,
 } from 'react-native';
 
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface InputFieldProps extends TextInputProps {
   label?: string;
@@ -36,8 +35,9 @@ export const InputField: React.FC<InputFieldProps> = ({
   onChangeText,
   ...props
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  // Consommation du thème sémantique réactif
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   const [isFocused, setIsFocused] = useState(false);
   const [internalValue, setInternalValue] = useState(
@@ -45,7 +45,6 @@ export const InputField: React.FC<InputFieldProps> = ({
   );
   const inputRef = useRef<TextInput>(null);
 
-  // Valeur d'animation : 0 = état inactif/vide (centré), 1 = état actif/rempli (flottant en haut)
   const isFilled = (value !== undefined ? String(value) : String(internalValue)).length > 0;
   const isFloating = isFocused || isFilled;
   const animatedValue = useRef(new Animated.Value(isFloating ? 1 : 0)).current;
@@ -54,11 +53,10 @@ export const InputField: React.FC<InputFieldProps> = ({
     Animated.timing(animatedValue, {
       toValue: isFloating ? 1 : 0,
       duration: 180,
-      useNativeDriver: false, // Nécessaire car interpolation sur fontSize / top
+      useNativeDriver: false,
     }).start();
   }, [isFloating, animatedValue]);
 
-  // Synchronisation de la valeur interne si non contrôlée
   const handleChangeText = (text: string) => {
     if (value === undefined) {
       setInternalValue(text);
@@ -69,20 +67,18 @@ export const InputField: React.FC<InputFieldProps> = ({
   const hasError = Boolean(error) || Boolean(errorMessage);
   const resolvedErrorMessage = typeof error === 'string' ? error : errorMessage;
 
-  const getBorderColor = () => {
-    if (hasError) return theme['colors_input_warning-border'];
-    if (isFocused) return theme['colors_input_select-border'];
-    return theme['colors_input_primary-border'];
-  };
+  const borderColor = useMemo(() => {
+    if (hasError) return colors['colors_input_warning-border'];
+    if (isFocused) return colors['colors_input_select-border'];
+    return colors['colors_input_primary-border'];
+  }, [hasError, isFocused, colors]);
 
-  const getLabelColor = () => {
-    if (hasError) return theme['colors_input_warning-text'];
-    if (isFocused) return theme['colors_input_select-text'];
-    return theme['colors_input_secondary-text'];
-  };
+  const labelColor = useMemo(() => {
+    if (hasError) return colors['colors_input_warning-text'];
+    if (isFocused) return colors['colors_input_select-text'];
+    return colors['colors_input_secondary-text'];
+  }, [hasError, isFocused, colors]);
 
-  // Interpolations pour l'animation
-  // Le label passe d'un centrage vertical (16px du haut) à sa position haute (6px du haut)
   const labelTop = animatedValue.interpolate({
     inputRange: [0, 1],
     outputRange: [17, 6],
@@ -105,8 +101,11 @@ export const InputField: React.FC<InputFieldProps> = ({
         style={[
           styles.container,
           {
-            backgroundColor: theme['colors_input_primary-bg'],
-            borderColor: getBorderColor(),
+            backgroundColor: colors['colors_input_primary-bg'],
+            borderColor,
+            borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+            borderWidth: primitives['border width_border-thin'] ?? 1,
+            paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
           },
         ]}
       >
@@ -118,7 +117,7 @@ export const InputField: React.FC<InputFieldProps> = ({
                 {
                   top: labelTop,
                   fontSize: labelFontSize,
-                  color: getLabelColor(),
+                  color: labelColor,
                 },
               ]}
               numberOfLines={1}
@@ -133,10 +132,10 @@ export const InputField: React.FC<InputFieldProps> = ({
             defaultValue={defaultValue}
             onChangeText={handleChangeText}
             aria-invalid={hasError}
+            placeholderTextColor={colors['colors_input_secondary-text']}
             style={[
               styles.input,
-              { color: theme['colors_input_primary-text'] },
-              // Descend le texte lorsque le label est affiché pour éviter tout chevauchement
+              { color: colors['colors_input_primary-text'] },
               effectiveLabel && styles.inputShifted,
               style,
               styles.webInputReset,
@@ -159,7 +158,7 @@ export const InputField: React.FC<InputFieldProps> = ({
               <Text
                 style={[
                   styles.suffixText,
-                  { color: theme['colors_input_secondary-text'] },
+                  { color: colors['colors_input_secondary-text'] },
                 ]}
               >
                 {suffix}
@@ -176,7 +175,7 @@ export const InputField: React.FC<InputFieldProps> = ({
           accessibilityRole="alert"
           style={[
             styles.errorMessage,
-            { color: theme['colors_input_warning-text'] },
+            { color: colors['colors_input_warning-text'] },
           ]}
         >
           {resolvedErrorMessage}
@@ -189,15 +188,12 @@ export const InputField: React.FC<InputFieldProps> = ({
 const styles = StyleSheet.create({
   outerContainer: {
     width: '100%',
-    marginBottom: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+    marginBottom: 8,
   },
   container: {
-    height: 56, // Hauteur fixe standard pour garantir l'alignement du label
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
     position: 'relative',
   },
   inputWrapper: {
@@ -214,8 +210,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   input: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-    lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
+    fontSize: 16,
+    lineHeight: 24,
     fontWeight: '600',
     padding: 0,
     margin: 0,
@@ -229,20 +225,20 @@ const styles = StyleSheet.create({
     default: {},
   }),
   inputShifted: {
-    marginTop: 16, // Crée l'espace nécessaire sous le petit label
+    marginTop: 16,
   },
   suffixContainer: {
-    marginLeft: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+    marginLeft: 8,
     justifyContent: 'center',
     alignItems: 'flex-end',
   },
   suffixText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+    fontSize: 14,
     fontWeight: '500',
   },
   errorMessage: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
-    lineHeight: primitives['typography_line height_line-height-16'] ?? 16,
+    fontSize: 12,
+    lineHeight: 16,
     marginTop: 4,
     marginLeft: 4,
     fontWeight: '500',

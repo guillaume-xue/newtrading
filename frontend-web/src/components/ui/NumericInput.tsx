@@ -1,4 +1,7 @@
+'use client';
+
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { InputField, InputFieldProps } from './InputField';
 
 export interface NumericInputProps
@@ -29,6 +32,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   decimalScale = 2,
   allowNegative = false,
   onChangeText,
+  style,
   ...props
 }) => {
   const handleChangeText = (value: string) => {
@@ -38,8 +42,15 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   return (
     <InputField
       {...props}
+      style={[styles.tabularInput, style]}
       keyboardType="decimal-pad"
       onChangeText={handleChangeText}
     />
   );
 };
+
+const styles = StyleSheet.create({
+  tabularInput: {
+    fontVariant: ['tabular-nums'],
+  },
+});

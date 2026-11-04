@@ -1,15 +1,13 @@
 'use client';
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'next/navigation';
 
 import { MarketTickerInfo } from '@/components/features/market/components/MarketTickerInfo';
 import { PercentageBadge } from '@/components/ui/PercentageBadge';
 import { Button } from '@/components/ui/Button';
-
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface ScreenerItem {
   id: string;
@@ -42,12 +40,12 @@ export const ScreenerTable: React.FC<ScreenerTableProps> = ({
   onSort,
 }) => {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors } = theme;
 
-  const textPrimary = theme['colors_text_primary'] ?? '#0B0F19';
-  const textMuted = theme['colors_text_secondary'] ?? '#9CA3AF';
-  const borderColor = theme['colors_divider_text'] ?? '#F3F4F6';
+  const textPrimary = colors['colors_text_primary'];
+  const textMuted = colors['colors_text_secondary'];
+  const borderColor = colors['colors_divider_text'];
 
   const formatPrice = (val: number) =>
     `${val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`;
@@ -59,7 +57,7 @@ export const ScreenerTable: React.FC<ScreenerTableProps> = ({
 
   const renderSortIndicator = (field: SortField) => {
     if (sortField !== field) return null;
-    return <Text style={styles.sortIndicator}>{sortOrder === 'asc' ? ' ▲' : ' ▼'}</Text>;
+    return <Text style={[styles.sortIndicator, { color: textPrimary }]}>{sortOrder === 'asc' ? ' ▲' : ' ▼'}</Text>;
   };
 
   return (
@@ -128,7 +126,7 @@ export const ScreenerTable: React.FC<ScreenerTableProps> = ({
               style={[
                 styles.skeletonRow,
                 {
-                  backgroundColor: theme['colors_bg_primary'] ?? '#F9FAFB',
+                  backgroundColor: colors['colors_bg_primary'],
                   borderBottomColor: borderColor,
                 },
               ]}
@@ -146,14 +144,16 @@ export const ScreenerTable: React.FC<ScreenerTableProps> = ({
         items.map((item) => {
           const totalValuation = item.quantity * item.currentPrice;
           const isPositivePnL = item.unrealizedPnL >= 0;
-          const pnlColor = isPositivePnL ? '#16A34A' : '#DC2626';
+          const pnlColor = isPositivePnL
+            ? colors['colors_badge_up']
+            : colors['colors_badge_down'];
 
           return (
             <View
               key={item.id}
               style={[styles.dataRow, { borderBottomColor: borderColor }]}
             >
-              {/* ACTIF / TICKER : aligné strictement à gauche avec MarketTickerInfo */}
+              {/* ACTIF / TICKER */}
               <View style={[styles.cell, styles.colAsset]}>
                 <MarketTickerInfo
                   title={item.name}
@@ -199,7 +199,7 @@ export const ScreenerTable: React.FC<ScreenerTableProps> = ({
                 </Text>
               </View>
 
-              {/* P&L (%) : centré horizontalement */}
+              {/* P&L (%) */}
               <View style={[styles.cell, styles.colPnlPercent]}>
                 <PercentageBadge
                   value={item.pnlPercent}
@@ -211,13 +211,23 @@ export const ScreenerTable: React.FC<ScreenerTableProps> = ({
               <View style={[styles.cell, styles.colAction]}>
                 <Button
                   label="Gérer"
-                  variant="secondary"
+                  variant="outline"
                   shape="rounded"
                   size="sm"
                   onPress={() =>
                     router.push(`/trade?symbol=${encodeURIComponent(item.symbol)}`)
                   }
-                  style={styles.actionBtn}
+                  labelStyle={{
+                    color: textPrimary,
+                    fontWeight: '600',
+                  }}
+                  style={[
+                    styles.actionBtn,
+                    {
+                      borderColor: colors['colors_button_outline-border'],
+                      backgroundColor: colors['colors_button_ghost'],
+                    },
+                  ]}
                 />
               </View>
             </View>
@@ -260,8 +270,6 @@ const styles = StyleSheet.create({
   cell: {
     justifyContent: 'center',
   },
-
-  /* ACTIF / TICKER */
   colAsset: {
     flex: 2.2,
     flexBasis: 0,
@@ -276,8 +284,6 @@ const styles = StyleSheet.create({
     height: 32,
     marginRight: 10,
   },
-
-  /* Colonnes chiffrées intermédiaires : alignées à droite */
   colPru: {
     flex: 1.5,
     flexBasis: 0,
@@ -302,24 +308,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingRight: 24,
   },
-
-  /* P&L (%) : centré horizontalement */
   colPnlPercent: {
     flex: 1.2,
     flexBasis: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  /* ACTION : alignée à droite */
   colAction: {
     flex: 1.0,
     flexBasis: 0,
     alignItems: 'flex-end',
     paddingRight: 0,
   },
-
-  /* Typographie et composants spécifiques */
   numericValue: {
     fontSize: 13,
     fontWeight: '700',
@@ -330,6 +330,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   badgeOverride: {
     alignSelf: 'center',
@@ -338,13 +339,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   actionBtn: {
-    minWidth: 64,
+    minWidth: 70,
     paddingVertical: 6,
     paddingHorizontal: 14,
-    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
   },
-
-  /* Loading & Empty */
   skeletonContainer: {
     paddingVertical: 8,
     gap: 8,

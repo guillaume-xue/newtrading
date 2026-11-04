@@ -1,20 +1,18 @@
-// src/components/Checkbox.tsx
-import React from 'react';
+'use client';
+
+// src/components/ui/Checkbox.tsx
+import React, { useMemo } from 'react';
 import {
   Pressable,
   View,
   Text,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
 } from 'react-native';
 import Image from 'next/image';
 
 import Cross from '@/assets/icons/cross.svg';
-
-import { lightColors } from '@/theme/generated/light';
-import { darkColors } from '@/theme/generated/dark';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface CheckboxProps {
   checked: boolean;
@@ -31,12 +29,21 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   disabled = false,
   style,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
 
   const boxBorderColor = checked
-    ? (theme['colors_button_primary'] ?? '#0D111A')
-    : (theme['colors_select_border'] ?? '#D1D4DC');
+    ? colors['colors_badge_primary-action-bg']
+    : colors['colors_select_border'];
+
+  const boxBgColor = checked
+    ? colors['colors_badge_primary-action-bg']
+    : colors['colors_bg_secondary'];
+
+  const iconFilter = useMemo(() => {
+    // Si coché, l'icône de validation est blanche
+    return 'brightness(0) invert(1)';
+  }, []);
 
   return (
     <Pressable
@@ -54,18 +61,33 @@ export const Checkbox: React.FC<CheckboxProps> = ({
           styles.box,
           {
             borderColor: boxBorderColor,
-            backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
+            backgroundColor: boxBgColor,
+            borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 6,
           },
         ]}
       >
-        <Image src={Cross} width={16} height={16} alt="" style={{ opacity: checked ? 1 : 0 }} />
+        <Image
+          src={Cross}
+          width={14}
+          height={14}
+          alt=""
+          style={{
+            opacity: checked ? 1 : 0,
+            filter: iconFilter,
+          }}
+        />
       </View>
 
       {label ? (
         <Text
           style={[
             styles.label,
-            { color: theme['colors_checklist_text'] ?? '#0D111A' },
+            {
+              color: colors['colors_checklist_text'],
+              marginLeft: primitives['spacing & layout_padding & margin_space-3'] ?? 10,
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
           ]}
           numberOfLines={1}
         >
@@ -81,19 +103,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    cursor: 'pointer',
   },
   box: {
     width: 22,
     height: 22,
-    borderRadius: primitives['spacing & layout_border radius_radius-sm'] ?? 6,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   label: {
-    marginLeft: primitives['spacing & layout_padding & margin_space-3'] ?? 10,
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '500',
   },
   pressed: {
@@ -103,3 +122,5 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
 });
+
+export default Checkbox;

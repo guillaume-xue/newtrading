@@ -2,7 +2,6 @@ package com.newtrading.marketdata.scheduler;
 
 import com.newtrading.marketdata.dto.QuoteDto;
 import com.newtrading.marketdata.service.PriceBroadcasterService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -15,11 +14,11 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
 @EnableScheduling
-@RequiredArgsConstructor
 @ConditionalOnProperty(name = "application.marketdata.simulator.enabled", havingValue = "true", matchIfMissing = true)
 public class MarketDataSimulatorScheduler {
 
@@ -31,7 +30,11 @@ public class MarketDataSimulatorScheduler {
             "MSFT", new BigDecimal("445.10")
     ));
 
-    @Scheduled(fixedRate = 30000)
+    public MarketDataSimulatorScheduler(PriceBroadcasterService priceBroadcasterService) {
+        this.priceBroadcasterService = priceBroadcasterService;
+    }
+
+    @Scheduled(fixedRate = 5, timeUnit = TimeUnit.MINUTES)
     public void simulatePriceTicks() {
         currentPrices.forEach((symbol, price) -> {
             // Variation aléatoire de -0.5% à +0.5%
