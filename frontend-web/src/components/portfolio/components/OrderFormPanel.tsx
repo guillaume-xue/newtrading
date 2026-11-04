@@ -99,13 +99,20 @@ export const OrderFormPanel: React.FC<OrderFormPanelProps> = ({
         orderDirection: targetDirection,
         quantity: parsedQuantity,
       });
+
+      // Émission de l'événement global pour synchroniser les liquidités partout dans l'interface
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('portfolio:updated'));
+      }
+
       onOrderSuccess();
+      setSize('1.00');
+
       if (!initialHistory) {
         await loadHistory();
       }
     } catch (error: unknown) {
       if (error instanceof ApiProblemError) {
-        // Traitement ciblé des codes métiers Spring Boot
         switch (error.code) {
           case 'INSUFFICIENT_FUNDS':
             setErrorMessage('Solde insuffisant pour exécuter cet achat.');

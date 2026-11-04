@@ -143,7 +143,6 @@ export const TopMarketTickerBar: React.FC<TopMarketTickerBarProps> = ({
         {
           backgroundColor: colors['colors_bg_secondary'],
           borderBottomColor: colors['colors_divider_text'],
-          borderBottomWidth: primitives['border width_border-thin'] ?? 1,
         },
         style,
       ]}

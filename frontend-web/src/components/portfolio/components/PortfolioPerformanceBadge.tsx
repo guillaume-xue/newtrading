@@ -9,7 +9,6 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import Image from 'next/image';
 
 import ChatArrowUp from '@/assets/icons/chat-arrow-up.svg';
 import ChatArrowDown from '@/assets/icons/chat-arrow-down.svg';
@@ -55,6 +54,8 @@ export const PortfolioPerformanceBadge: React.FC<PortfolioPerformanceBadgeProps>
   const badgeBg = isUp ? colors['colors_badge_up-bg'] : colors['colors_badge_down-bg'];
   const badgeBorder = isUp ? colors['colors_badge_up-border'] : colors['colors_badge_down-border'];
   const badgeText = isUp ? colors['colors_badge_up-text'] : colors['colors_badge_down-text'];
+
+  const iconSrc = isUp ? ChatArrowUp.src ?? ChatArrowUp : ChatArrowDown.src ?? ChatArrowDown;
 
   const formattedText = useMemo(() => {
     if (label) return label;
@@ -102,10 +103,23 @@ export const PortfolioPerformanceBadge: React.FC<PortfolioPerformanceBadgeProps>
       >
         {customIcon ? (
           customIcon
-        ) : isUp ? (
-          <Image src={ChatArrowUp} width={16} height={16} alt="Hausse" />
         ) : (
-          <Image src={ChatArrowDown} width={16} height={16} alt="Baisse" />
+          <div
+            style={{
+              width: 16,
+              height: 16,
+              backgroundColor: badgeText,
+              WebkitMaskImage: `url(${iconSrc})`,
+              maskImage: `url(${iconSrc})`,
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat',
+              WebkitMaskPosition: 'center',
+              maskPosition: 'center',
+              WebkitMaskSize: 'contain',
+              maskSize: 'contain',
+              display: 'inline-block',
+            }}
+          />
         )}
       </View>
 

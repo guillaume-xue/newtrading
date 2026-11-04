@@ -1,5 +1,6 @@
 'use client';
 
+// src/components/portfolio/components/tables/PortfolioPositionRow.tsx
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { MarketTickerInfo } from '@/components/features/market/components/MarketTickerInfo';
@@ -167,10 +168,21 @@ export const PortfolioPositionRow: React.FC<PortfolioPositionRowProps> = ({
       <View style={styles.colAction}>
         <Button
           label="Gérer"
-          variant="secondary"
+          variant="outline"
           shape="rounded"
           size="sm"
           onPress={onManagePress}
+          labelStyle={{
+            color: colors['colors_text_primary'],
+            fontWeight: '600',
+          }}
+          style={[
+            styles.actionBtn,
+            {
+              borderColor: colors['colors_button_outline-border'],
+              backgroundColor: colors['colors_button_ghost'],
+            },
+          ]}
         />
       </View>
     </View>
@@ -212,6 +224,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  actionBtn: {
+    minWidth: 70,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderWidth: 1,
   },
   mainValueText: {
     fontWeight: '700',

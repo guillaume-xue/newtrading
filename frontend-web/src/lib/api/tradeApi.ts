@@ -17,12 +17,36 @@ export interface TransactionResponse {
   executedAt: string;
 }
 
+export interface PositionData {
+  assetCode: string;
+  category: string;
+  quantity: number;
+  averagePrice: number;
+  currentPrice: number;
+  valuation: number;
+  unrealizedPnL: number;
+  unrealizedPnLPercentage: number;
+}
+
+export interface AllocationData {
+  category: string;
+  amount: number;
+  percentage: number;
+}
+
 export interface PnLData {
   portfolioId: string;
   currentBalance: number;
   totalPortfolioValue: number;
   totalUnrealizedPnL: number;
   totalPnLPercentage: number;
+  positions?: PositionData[];
+  allocations?: AllocationData[];
+}
+
+export interface EquityPoint {
+  timestamp: string;
+  value: number;
 }
 
 export interface PageResponse<T> {
@@ -41,6 +65,11 @@ export const tradeApi = {
 
   getPnL: async (): Promise<PnLData> => {
     const { data } = await httpClient.get<PnLData>('/trades/pnl');
+    return data;
+  },
+
+  getEquityHistory: async (): Promise<EquityPoint[]> => {
+    const { data } = await httpClient.get<EquityPoint[]>('/trades/equity-history');
     return data;
   },
 

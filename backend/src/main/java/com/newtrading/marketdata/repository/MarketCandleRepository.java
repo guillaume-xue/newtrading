@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -18,6 +19,11 @@ public interface MarketCandleRepository extends JpaRepository<MarketCandle, UUID
      * Récupère l'historique complet pour un actif et un timeframe, trié par date croissante (prêt pour Lightweight Charts).
      */
     List<MarketCandle> findByAssetCodeAndTimeframeOrderByOpenTimeAsc(String assetCode, String timeframe);
+
+    /**
+     * Récupère la toute dernière bougie enregistrée en base pour vérifier la fraîcheur des données.
+     */
+    Optional<MarketCandle> findTopByAssetCodeAndTimeframeOrderByOpenTimeDesc(String assetCode, String timeframe);
 
     /**
      * Récupère les bougies sur une plage temporelle donnée (ex: zoom graphique).
@@ -30,7 +36,7 @@ public interface MarketCandleRepository extends JpaRepository<MarketCandle, UUID
     );
 
     /**
-     * Récupère les N dernières bougies (avec tri antéchronologique puis inversion côté service ou subquery).
+     * Récupère les N dernières bougies.
      */
     @Query("SELECT c FROM MarketCandle c WHERE c.assetCode = :assetCode AND c.timeframe = :timeframe ORDER BY c.openTime DESC")
     List<MarketCandle> findLatestCandles(

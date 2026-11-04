@@ -93,7 +93,7 @@ export const MarketCashInfo: React.FC<MarketCashInfoProps> = ({
           styles.amount,
           {
             color: colors['colors_text_primary'],
-            fontSize: primitives['typography_font size_font-size-18'] ?? 18,
+            fontSize: primitives['typography_font size_font-size-16'] ?? 16,
             lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
           },
           amountStyle,

@@ -17,6 +17,12 @@ public interface SimulatedTransactionRepository extends JpaRepository<SimulatedT
 
     Page<SimulatedTransaction> findByPortfolioIdOrderByExecutedAtDesc(UUID portfolioId, Pageable pageable);
 
+    /**
+     * Récupère toutes les transactions triées par ordre chronologique ascendant
+     * pour reconstituer la courbe d'équité historique du portefeuille.
+     */
+    List<SimulatedTransaction> findByPortfolioIdOrderByExecutedAtAsc(UUID portfolioId);
+
     List<SimulatedTransaction> findByPortfolioIdAndAssetCode(UUID portfolioId, String assetCode);
 
     @Query("""

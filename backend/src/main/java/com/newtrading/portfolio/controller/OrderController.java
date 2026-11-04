@@ -1,6 +1,7 @@
 package com.newtrading.portfolio.controller;
 
 import com.newtrading.auth.model.User;
+import com.newtrading.portfolio.dto.EquityPointResponse;
 import com.newtrading.portfolio.dto.PlaceOrderRequest;
 import com.newtrading.portfolio.dto.PnLResponse;
 import com.newtrading.portfolio.dto.TransactionResponse;
@@ -19,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -55,6 +57,14 @@ public class OrderController {
     ) {
         UUID userId = extractUserId(currentUser);
         return ResponseEntity.ok(portfolioService.calculatePnL(userId));
+    }
+
+    @GetMapping("/equity-history")
+    public ResponseEntity<List<EquityPointResponse>> getPortfolioEquityHistory(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        UUID userId = extractUserId(currentUser);
+        return ResponseEntity.ok(portfolioService.getPortfolioEquityHistory(userId));
     }
 
     private UUID extractUserId(User currentUser) {

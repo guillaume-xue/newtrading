@@ -1,5 +1,6 @@
 'use client';
 
+// src/components/layout/AppHeader.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
@@ -29,6 +30,7 @@ import { LoginModal } from '@/components/auth/LoginModal';
 import { SignUpModal } from '@/components/auth/SignUpModal';
 import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { alertApi, AlertResponse } from '@/lib/api/alertApi';
+import { tradeApi } from '@/lib/api/tradeApi';
 import { StreamStatus } from '@/lib/hooks/useMarketStream';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { TimeRange, TIME_RANGES } from '@/types/timeRange';
@@ -78,7 +80,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onSelectNav,
   searchValue,
   onSearchChange,
-  cashAmount = 100000,
+  cashAmount,
   assetCode = 'AAPL',
   currentPrice,
   selectedRange = '1D',
@@ -102,6 +104,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
   const { isAuthenticated, isLoading } = useAuthStore();
 
+  const [realCashBalance, setRealCashBalance] = useState<number | null>(null);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
@@ -112,6 +115,46 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const [notifications, setNotifications] = useState<AlertResponse[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
 
+  // 1. Chargement des liquidités réelles
+  const fetchLiveBalance = useCallback(async () => {
+    if (!isAuthenticated) {
+      setRealCashBalance(null);
+      return;
+    }
+    try {
+      const pnl = await tradeApi.getPnL();
+      if (pnl && typeof pnl.currentBalance === 'number') {
+        setRealCashBalance(pnl.currentBalance);
+      }
+    } catch {
+      // Ignoré
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    void fetchLiveBalance();
+
+    const handlePortfolioUpdate = () => {
+      void fetchLiveBalance();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('portfolio:updated', handlePortfolioUpdate);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('portfolio:updated', handlePortfolioUpdate);
+      }
+    };
+  }, [fetchLiveBalance]);
+
+  const displayedCashAmount = useMemo(() => {
+    if (realCashBalance !== null) return realCashBalance;
+    if (cashAmount !== undefined && cashAmount !== null) return cashAmount;
+    return 0;
+  }, [realCashBalance, cashAmount]);
+
   const fetchTriggeredAlerts = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -120,7 +163,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       const triggered = alerts.filter((a) => a.isTriggered);
       setNotifications(triggered);
     } catch {
-      // Ignorer si échec temporaire
+      // Ignoré
     } finally {
       setNotifLoading(false);
     }
@@ -202,6 +245,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       onProfilePress();
     } else if (isAuthenticated) {
       router.push('/user');
+    } else if (onLoginPress) {
+      onLoginPress();
     } else {
       setIsLoginModalOpen(true);
     }
@@ -472,8 +517,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {isLoading ? (
             <View style={styles.authLoadingPlaceholder} />
           ) : !isAuthenticated ? (
-            /* Mode GUEST : toujours Connexion / Ouvrir un compte, sans liquidités ni profil */
             <View style={styles.guestActionRow}>
+              {/* Thème switch */}
               <Pressable
                 onPress={toggleTheme}
                 accessibilityLabel="Changer de thème"
@@ -491,14 +536,24 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 />
               </Pressable>
 
-              <Button
-                label="Connexion"
-                variant="outline"
-                shape="rounded"
-                size="sm"
-                onPress={onLoginPress ?? (() => setIsLoginModalOpen(true))}
-                style={styles.headerActionButton}
-              />
+              {/* Bouton profil SVG pour la connexion directe */}
+              <Pressable
+                onPress={handleProfileClick}
+                accessibilityLabel="Connexion au profil"
+                style={[
+                  styles.actionIconBtn,
+                  { backgroundColor: colors['colors_bg_primary'], borderRadius: 8 },
+                ]}
+              >
+                <Image
+                  src={ProfileIcon}
+                  width={20}
+                  height={20}
+                  alt="Connexion profil"
+                  style={{ filter: iconFilter }}
+                />
+              </Pressable>
+
               <Button
                 label="Ouvrir un compte"
                 variant="primary"
@@ -509,11 +564,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               />
             </View>
           ) : (
-            /* Mode AUTHENTICATED : liquidités, alertes, réglages et profil */
             <View style={styles.authActionRow}>
-              <MarketCashInfo label="LIQUIDITÉS" amount={cashAmount} />
+              <MarketCashInfo label="LIQUIDITÉS" amount={displayedCashAmount} />
 
               <View style={styles.iconActions}>
+                {/* Thème switch */}
                 <Pressable
                   onPress={toggleTheme}
                   accessibilityLabel="Changer de thème"
@@ -531,6 +586,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   />
                 </Pressable>
 
+                {/* Notifications */}
                 <View style={styles.notifWrapper}>
                   <Pressable
                     onPress={handleToggleNotifications}
@@ -658,6 +714,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   )}
                 </View>
 
+                {/* Paramètres */}
                 <Pressable onPress={onSettingsPress} style={styles.actionIconBtn}>
                   <Image
                     src={GearIcon}
@@ -668,22 +725,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   />
                 </Pressable>
 
+                {/* Profil Utilisateur SVG */}
                 <Pressable
                   onPress={handleProfileClick}
                   style={[
                     styles.actionIconBtn,
                     pathname?.startsWith('/user') && [
                       styles.activeProfileBtn,
-                      { backgroundColor: colors['colors_bg_primary'] },
                     ],
                   ]}
                 >
                   <Image
                     src={ProfileIcon}
-                    width={20}
-                    height={20}
+                    width={24}
+                    height={24}
                     alt="Profil"
-                    style={{ filter: iconFilter }}
                   />
                 </Pressable>
               </View>
@@ -703,7 +759,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <LoginModal
         visible={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        onSuccess={() => setIsLoginModalOpen(false)}
+        onSuccess={() => {
+          setIsLoginModalOpen(false);
+          void fetchLiveBalance();
+        }}
         onNavigateToSignUp={() => {
           setIsLoginModalOpen(false);
           setIsSignUpModalOpen(true);
@@ -713,7 +772,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <SignUpModal
         visible={isSignUpModalOpen}
         onClose={() => setIsSignUpModalOpen(false)}
-        onSuccess={() => setIsSignUpModalOpen(false)}
+        onSuccess={() => {
+          setIsSignUpModalOpen(false);
+          void fetchLiveBalance();
+        }}
         onNavigateToLogin={() => {
           setIsSignUpModalOpen(false);
           setIsLoginModalOpen(true);
@@ -759,7 +821,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
     zIndex: 60,
   },
   leftGroup: {
@@ -889,7 +950,7 @@ const styles = StyleSheet.create({
   authActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 32,
   },
   iconActions: {
     flexDirection: 'row',
