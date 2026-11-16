@@ -22,6 +22,7 @@ import { TimeRange, getFromTimestampForRange } from '@/types/timeRange';
 import { useMarketStream } from '@/lib/hooks/useMarketStream';
 import { useAppTheme } from '@/theme/ThemeContext';
 
+// Extrait des ajouts clés dans TradingChartProps & TradingChart :
 interface TradingChartProps {
   symbol: string;
   themeMode?: 'dark' | 'light';
@@ -33,9 +34,11 @@ interface TradingChartProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
+  liveQuote?: QuoteModel | null;
   onDrawingsChange?: (hasDrawings: boolean) => void;
   onPriceChange?: (price: number, basePrice?: number) => void;
 }
+
 
 export const TradingChart: React.FC<TradingChartProps> = ({
   symbol,

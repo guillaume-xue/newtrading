@@ -9,10 +9,11 @@ import { useAppTheme } from '@/theme/ThemeContext';
 
 interface AlertPanelProps {
   assetCode: string;
+  refreshToken?: number;
   onAddPress: () => void;
 }
 
-export const AlertPanel: React.FC<AlertPanelProps> = ({ assetCode, onAddPress }) => {
+export const AlertPanel: React.FC<AlertPanelProps> = ({ assetCode, onAddPress, refreshToken }) => {
   const { theme } = useAppTheme();
   const { colors, primitives } = theme;
 
@@ -31,12 +32,8 @@ export const AlertPanel: React.FC<AlertPanelProps> = ({ assetCode, onAddPress })
   }, []);
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      void loadAlerts();
-    }, 0);
-
-    return () => clearTimeout(timeoutId);
-  }, [loadAlerts]);
+    void loadAlerts();
+  }, [loadAlerts, refreshToken]);
 
   const assetAlerts = alerts.filter((alert) => alert.assetCode === assetCode);
 
