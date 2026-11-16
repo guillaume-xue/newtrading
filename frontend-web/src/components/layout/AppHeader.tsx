@@ -6,6 +6,7 @@ import {
   View,
   Text,
   Pressable,
+  Modal,
   StyleSheet,
   ViewStyle,
   ScrollView,
@@ -27,6 +28,7 @@ import { Button } from '@/components/ui/Button';
 import { MarketCashInfo } from '@/components/features/market/components/MarketCashInfo';
 import { CreateAlertModal } from '@/components/features/market/components/CreateAlertModal';
 import { LoginModal } from '@/components/auth/LoginModal';
+import { VDivider } from '@/components/ui/VDivider';
 import { SignUpModal } from '@/components/auth/SignUpModal';
 import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { alertApi, AlertResponse } from '@/lib/api/alertApi';
@@ -60,7 +62,7 @@ export interface AppHeaderProps {
   cashAmount?: number | string;
   assetCode?: string;
   currentPrice?: number;
-  selectedRange?: TimeRange;
+  defaultRange?: TimeRange;
   onSelectRange?: (range: TimeRange) => void;
   chartType?: 'candlestick' | 'area';
   onToggleChartType?: () => void;
@@ -83,8 +85,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   cashAmount,
   assetCode = 'AAPL',
   currentPrice,
-  selectedRange = '1D',
   onSelectRange,
+  defaultRange = 'ALL',
   chartType = 'candlestick',
   onToggleChartType,
   onLoginPress,
@@ -102,7 +104,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const { theme, toggleTheme } = useAppTheme();
   const { colors, isDark } = theme;
 
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading, logout } = useAuthStore();
 
   const [realCashBalance, setRealCashBalance] = useState<number | null>(null);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
@@ -110,10 +112,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
   const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
   const [internalSearch, setInternalSearch] = useState(searchValue ?? '');
+  const [selectedRange, setSelectedRange] = useState<TimeRange>(defaultRange);
 
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<AlertResponse[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
+
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // 1. Chargement des liquidités réelles
   const fetchLiveBalance = useCallback(async () => {
@@ -235,8 +241,29 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   };
 
+  const handleToggleSettings = () => {
+    setIsNotifDropdownOpen(false);
+    setIsSettingsModalOpen((prev) => !prev);
+    onSettingsPress?.();
+  };
+
+  const handleLogoutConfirm = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      setRealCashBalance(null);
+      setNotifications([]);
+      setIsSettingsModalOpen(false);
+      router.push('/');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   const handleSelectTimeRange = (range: TimeRange) => {
     onSelectRange?.(range);
+    setSelectedRange(range);
     setIsRangeMenuOpen(false);
   };
 
@@ -273,6 +300,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     return isDark ? 'brightness(0) invert(1)' : 'none';
   }, [isDark]);
 
+  const dividerColor = colors['colors_divider_text'] ?? (isDark ? '#30363D' : '#E2E8F0');
+
   return (
     <>
       {streamStatus && streamStatus !== 'CONNECTED' && (
@@ -291,7 +320,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           styles.headerContainer,
           {
             backgroundColor: colors['colors_bg_secondary'],
-            borderBottomColor: colors['colors_divider_text'],
+            borderBottomColor: dividerColor,
           },
           style,
         ]}
@@ -375,12 +404,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 />
               </View>
 
-              <View
-                style={[
-                  styles.separator,
-                  { backgroundColor: colors['colors_divider_text'] },
-                ]}
-              />
+              <VDivider/>
 
               <View style={styles.rangeSelectorWrapper}>
                 <Pressable
@@ -401,7 +425,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       styles.rangeDropdown,
                       {
                         backgroundColor: colors['colors_bg_secondary'],
-                        borderColor: colors['colors_divider_text'],
+                        borderColor: dividerColor,
                       },
                     ]}
                   >
@@ -438,12 +462,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 )}
               </View>
 
-              <View
-                style={[
-                  styles.separator,
-                  { backgroundColor: colors['colors_divider_text'] },
-                ]}
-              />
+              <VDivider/>
 
               <Pressable
                 onPress={onToggleChartType}
@@ -461,12 +480,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 />
               </Pressable>
 
-              <View
-                style={[
-                  styles.separator,
-                  { backgroundColor: colors['colors_divider_text'] },
-                ]}
-              />
+              <VDivider/>
 
               <Pressable
                 onPress={handleOpenAlert}
@@ -536,23 +550,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 />
               </Pressable>
 
-              {/* Bouton profil SVG pour la connexion directe */}
-              <Pressable
-                onPress={handleProfileClick}
-                accessibilityLabel="Connexion au profil"
-                style={[
-                  styles.actionIconBtn,
-                  { backgroundColor: colors['colors_bg_primary'], borderRadius: 8 },
-                ]}
-              >
-                <Image
-                  src={ProfileIcon}
-                  width={20}
-                  height={20}
-                  alt="Connexion profil"
-                  style={{ filter: iconFilter }}
-                />
-              </Pressable>
+              <Button
+                label="Se connecter"
+                variant="outline"
+                shape="rounded"
+                size="sm"
+                onPress={onLoginPress ?? (() => setIsLoginModalOpen(true))}
+                style={styles.headerActionButton}
+              />
 
               <Button
                 label="Ouvrir un compte"
@@ -614,11 +619,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                         styles.notifDropdown,
                         {
                           backgroundColor: colors['colors_bg_secondary'],
-                          borderColor: colors['colors_divider_text'],
+                          borderColor: dividerColor,
                         },
                       ]}
                     >
-                      <View style={[styles.notifHeader, { borderBottomColor: colors['colors_divider_text'] }]}>
+                      <View style={[styles.notifHeader, { borderBottomColor: dividerColor }]}>
                         <Text
                           style={[
                             styles.notifHeaderTitle,
@@ -654,7 +659,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                               key={notif.id}
                               style={[
                                 styles.notifItem,
-                                { borderBottomColor: colors['colors_divider_text'] },
+                                { borderBottomColor: dividerColor },
                               ]}
                               onPress={() => {
                                 setIsNotifDropdownOpen(false);
@@ -714,16 +719,90 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   )}
                 </View>
 
-                {/* Paramètres */}
-                <Pressable onPress={onSettingsPress} style={styles.actionIconBtn}>
-                  <Image
-                    src={GearIcon}
-                    width={20}
-                    height={20}
-                    alt="Paramètres"
-                    style={{ filter: iconFilter }}
-                  />
-                </Pressable>
+                {/* Paramètres -> Petite modale de déconnexion */}
+                <View style={styles.settingsWrapper}>
+                  <Pressable
+                    onPress={handleToggleSettings}
+                    accessibilityLabel="Paramètres"
+                    style={[
+                      styles.actionIconBtn,
+                      isSettingsModalOpen && {
+                        backgroundColor: colors['colors_bg_primary'],
+                        borderRadius: 8,
+                      },
+                    ]}
+                  >
+                    <Image
+                      src={GearIcon}
+                      width={20}
+                      height={20}
+                      alt="Paramètres"
+                      style={{ filter: iconFilter }}
+                    />
+                  </Pressable>
+
+                  <Modal
+                    visible={isSettingsModalOpen}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setIsSettingsModalOpen(false)}
+                  >
+                    <Pressable
+                      style={styles.settingsBackdrop}
+                      onPress={() => setIsSettingsModalOpen(false)}
+                    >
+                      <Pressable
+                        onPress={(e) => e.stopPropagation()}
+                        style={[
+                          styles.settingsPopoverModal,
+                          {
+                            backgroundColor: colors['colors_bg_secondary'],
+                            borderColor: dividerColor,
+                          },
+                        ]}
+                      >
+                        {user?.email ? (
+                          <View
+                            style={[
+                              styles.settingsUserRow,
+                              { borderBottomColor: dividerColor },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.settingsUserEmail,
+                                { color: colors['colors_text_secondary'] },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {user.email}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        <Pressable
+                          onPress={() => void handleLogoutConfirm()}
+                          disabled={isLoggingOut}
+                          style={({ pressed }) => [
+                            styles.logoutActionRow,
+                            pressed && {
+                              backgroundColor: colors['colors_bg_primary'],
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.logoutActionText,
+                              { color: colors['colors_button_sell'] },
+                            ]}
+                          >
+                            {isLoggingOut ? 'Déconnexion...' : 'Se déconnecter'}
+                          </Text>
+                        </Pressable>
+                      </Pressable>
+                    </Pressable>
+                  </Modal>
+                </View>
 
                 {/* Profil Utilisateur SVG */}
                 <Pressable
@@ -860,16 +939,12 @@ const styles = StyleSheet.create({
   chartToolsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: 30,
     gap: 8,
   },
   chartSearchWrapper: {
     width: 140,
     overflow: 'hidden',
-  },
-  separator: {
-    width: 1,
-    height: 18,
-    marginHorizontal: 4,
   },
   rangeSelectorWrapper: {
     position: 'relative',
@@ -960,6 +1035,42 @@ const styles = StyleSheet.create({
   notifWrapper: {
     position: 'relative',
     zIndex: 90,
+  },
+  settingsWrapper: {
+    position: 'relative',
+    zIndex: 95,
+  },
+  settingsBackdrop: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  settingsPopoverModal: {
+    position: 'absolute',
+    top: 60,
+    right: 56,
+    minWidth: 210,
+    borderRadius: 8,
+    borderWidth: 1,
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16)',
+    overflow: 'hidden',
+  },
+  settingsUserRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  settingsUserEmail: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  logoutActionRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
+  logoutActionText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   actionIconBtn: {
     width: 32,

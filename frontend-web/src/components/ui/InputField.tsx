@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -35,7 +35,6 @@ export const InputField: React.FC<InputFieldProps> = ({
   onChangeText,
   ...props
 }) => {
-  // Consommation du thème sémantique réactif
   const { theme } = useAppTheme();
   const { colors, primitives } = theme;
 
@@ -45,7 +44,15 @@ export const InputField: React.FC<InputFieldProps> = ({
   );
   const inputRef = useRef<TextInput>(null);
 
-  const isFilled = (value !== undefined ? String(value) : String(internalValue)).length > 0;
+  // Synchronise l'état interne si le parent réinitialise `value` (ex. fermeture de modale)
+  useEffect(() => {
+    if (value !== undefined) {
+      setInternalValue(value);
+    }
+  }, [value]);
+
+  const currentText = value !== undefined ? String(value) : String(internalValue);
+  const isFilled = currentText.length > 0;
   const isFloating = isFocused || isFilled;
   const animatedValue = useRef(new Animated.Value(isFloating ? 1 : 0)).current;
 
@@ -57,12 +64,19 @@ export const InputField: React.FC<InputFieldProps> = ({
     }).start();
   }, [isFloating, animatedValue]);
 
-  const handleChangeText = (text: string) => {
-    if (value === undefined) {
-      setInternalValue(text);
-    }
-    onChangeText?.(text);
-  };
+  const handleChangeText = useCallback(
+    (text: string) => {
+      if (value === undefined) {
+        setInternalValue(text);
+      }
+      onChangeText?.(text);
+    },
+    [value, onChangeText]
+  );
+
+  const handleContainerPress = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const hasError = Boolean(error) || Boolean(errorMessage);
   const resolvedErrorMessage = typeof error === 'string' ? error : errorMessage;
@@ -94,9 +108,7 @@ export const InputField: React.FC<InputFieldProps> = ({
   return (
     <View style={styles.outerContainer}>
       <Pressable
-        onPress={() =>
-          (inputRef.current as unknown as { focus: () => void } | null)?.focus()
-        }
+        onPress={handleContainerPress}
         accessibilityRole="none"
         style={[
           styles.container,
@@ -244,3 +256,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+
+export default InputField;

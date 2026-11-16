@@ -1,7 +1,7 @@
 'use client';
 
 // src/screens/AuthSelectionScreen.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import Image from 'next/image';
 
 import Logo from '@/assets/icons/Logo.svg';
 import { Button } from '@/components/ui/Button';
-import { Divider } from '@/components/ui/Divider';
+import { HDivider } from '@/components/ui/HDivider';
 import { SignUpModal } from '@/components/auth/SignUpModal';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { useAppTheme } from '@/theme/ThemeContext';
@@ -34,18 +34,32 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
   onBack,
 }) => {
   const { theme } = useAppTheme();
-  const { colors, primitives, isDark } = theme;
+  const { colors, isDark } = theme;
 
+  // Toujours fermée au chargement initial : s'ouvre uniquement au clic sur le bouton e-mail[span_12](start_span)[span_12](end_span)[span_13](start_span)[span_13](end_span)
   const [activeModal, setActiveModal] = useState<AuthModalType>(null);
 
-  const closeModal = () => setActiveModal(null);
-  const changeAuthMode = (modal: Exclude<AuthModalType, null>) => {
-    onModalChange(modal);
-  };
-  const openModal = (modal: Exclude<AuthModalType, null>) => {
-    onModalChange(modal);
-    setActiveModal(modal);
-  };
+  const closeModal = useCallback(() => {
+    setActiveModal(null);
+  }, []);
+
+  // Change le mode (connexion / inscription) sans ouvrir la modale[span_14](start_span)[span_14](end_span)[span_15](start_span)[span_15](end_span)
+  const changeAuthMode = useCallback(
+    (modal: Exclude<AuthModalType, null>) => {
+      setActiveModal(null);
+      onModalChange(modal);
+    },
+    [onModalChange]
+  );
+
+  // Ouvre explicitement la modale au clic sur le bouton e-mail[span_16](start_span)[span_16](end_span)[span_17](start_span)[span_17](end_span)
+  const openModal = useCallback(
+    (modal: Exclude<AuthModalType, null>) => {
+      onModalChange(modal);
+      setActiveModal(modal);
+    },
+    [onModalChange]
+  );
 
   const logoFilter = useMemo(() => {
     return isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
@@ -53,7 +67,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors['colors_bg_secondary'] }]}>
-      {/* Bouton retour vers la page principale */}
+      {/* Bouton retour vers la page principale[span_18](start_span)[span_18](end_span)[span_19](start_span)[span_19](end_span) */}
       {onBack && (
         <Pressable onPress={onBack} style={styles.backButton} hitSlop={12}>
           <Text style={[styles.backButtonText, { color: colors['colors_text_secondary'] }]}>
@@ -67,9 +81,9 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.sectionLogin}>
-          {/* Frame 2 : Formulaire + Logo */}
+          {/* Frame 2 : Formulaire + Logo[span_20](start_span)[span_20](end_span)[span_21](start_span)[span_21](end_span) */}
           <View style={styles.frame2}>
-            {/* Section Formulaire */}
+            {/* Section Formulaire[span_22](start_span)[span_22](end_span)[span_23](start_span)[span_23](end_span) */}
             <View style={styles.formSection}>
               <View style={styles.titleFrame}>
                 <Text style={[styles.title, { color: colors['colors_text_primary'] }]}>
@@ -77,7 +91,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
                 </Text>
               </View>
 
-              {/* Conteneur des boutons */}
+              {/* Conteneur des boutons[span_24](start_span)[span_24](end_span)[span_25](start_span)[span_25](end_span) */}
               <View style={styles.actionsContainer}>
                 <Button
                   label="Continuer avec Apple"
@@ -99,7 +113,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
                   onPress={() => {}}
                 />
 
-                <Divider label="ou" style={styles.divider} />
+                <HDivider label="ou" style={styles.divider} />
 
                 {initialModal === 'signup' ? (
                   <Button
@@ -143,7 +157,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
               </View>
             </View>
 
-            {/* Frame 3 : Logo */}
+            {/* Frame 3 : Logo[span_26](start_span)[span_26](end_span)[span_27](start_span)[span_27](end_span) */}
             <View style={styles.logoFrame}>
               <Image
                 src={Logo}
@@ -156,7 +170,7 @@ export const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
             </View>
           </View>
 
-          {/* Lien Connexion */}
+          {/* Lien Connexion / Inscription[span_28](start_span)[span_28](end_span)[span_29](start_span)[span_29](end_span) */}
           <View style={styles.textLogin}>
             {initialModal === 'signup' ? (
               <Text style={[styles.loginText, { color: colors['colors_text_secondary'] }]}>

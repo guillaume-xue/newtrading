@@ -9,7 +9,7 @@ import { SelectTrigger } from '@/components/ui/SelectTrigger';
 import { Switch } from '@/components/ui/Switch';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Checkbox } from '@/components/ui/Checkbox';
-import { Divider } from '@/components/ui/Divider';
+import { Divider } from '@/components/ui/VDivider';
 import { PortfolioPerformanceBadge } from '@/components/portfolio/components/PortfolioPerformanceBadge';
 import { PercentageBadge } from '@/components/ui/PercentageBadge';
 import { FinancialValue } from '@/components/ui/FinancialValue';

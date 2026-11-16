@@ -1,14 +1,14 @@
 'use client';
 
 // src/components/features/market/components/InteractiveMarketChart.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import Image from 'next/image';
 
 import { TradingChart } from './TradingChart';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/Switch';
-import { TimeRange } from '@/types/timeRange';
+import { TimeRange, TIME_RANGES } from '@/types/timeRange';
 import ExpandIcon from '@/assets/icons/fi-rr-expand.svg';
 import { useAppTheme } from '@/theme/ThemeContext';
 
@@ -18,16 +18,8 @@ interface InteractiveMarketChartProps {
   defaultRange?: TimeRange;
   disableZoom?: boolean;
   onFullscreenPress?: () => void;
+  onRangeChange?: (range: TimeRange) => void;
 }
-
-const RANGES: { label: string; value: TimeRange }[] = [
-  { label: '1D', value: '1D' },
-  { label: '1M', value: '1M' },
-  { label: '3M', value: '3M' },
-  { label: '1Y', value: '1Y' },
-  { label: '5Y', value: '5Y' },
-  { label: 'Tout', value: 'ALL' },
-];
 
 export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
   symbol,
@@ -35,12 +27,22 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
   defaultRange = 'ALL',
   disableZoom = false,
   onFullscreenPress,
+  onRangeChange,
 }) => {
   const { theme } = useAppTheme();
   const { colors, primitives, isDark } = theme;
 
   const [selectedRange, setSelectedRange] = useState<TimeRange>(defaultRange);
   const [chartMode, setChartMode] = useState<'left' | 'right'>('right');
+
+  useEffect(() => {
+    setSelectedRange(defaultRange);
+  }, [defaultRange]);
+
+  const handleSelectRange = (range: TimeRange) => {
+    setSelectedRange(range);
+    onRangeChange?.(range);
+  };
 
   // Détection positif / négatif
   const numericChange = useMemo(() => {
@@ -71,6 +73,11 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
     return isPositive ? 'rgba(5, 150, 105, 0.0)' : 'rgba(220, 38, 38, 0.0)';
   }, [changePercent, isPositive]);
 
+  const activeBorderColor =
+    colors['colors_button_outline-border'] ??
+    colors['colors_divider_text'] ??
+    (isDark ? '#30363D' : '#CBD5E1');
+
   const iconFilter = isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
 
   return (
@@ -92,28 +99,29 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
       {/* 2. Barre d'outils inférieure */}
       <View style={styles.bottomBar}>
         <View style={styles.rangeButtonsGroup}>
-          {RANGES.map((item) => {
-            const isSelected = selectedRange === item.value;
+          {TIME_RANGES.map((range) => {
+            const isSelected = selectedRange === range;
             return (
               <Button
-                key={item.label}
-                label={item.label}
+                key={range}
+                label={range}
                 size="sm"
                 variant={isSelected ? 'secondary' : 'ghost'}
                 shape="rounded"
-                onPress={() => setSelectedRange(item.value)}
+                onPress={() => handleSelectRange(range)}
                 labelStyle={{
                   color: isSelected
                     ? colors['colors_text_primary']
                     : colors['colors_text_secondary'],
                   fontWeight: isSelected ? '700' : '600',
+                  fontVariant: ['tabular-nums'],
                 }}
                 style={
                   isSelected
                     ? {
                         ...styles.rangeBtn,
                         backgroundColor: colors['colors_bg_primary'],
-                        borderColor: colors['colors_divider_text'],
+                        borderColor: activeBorderColor,
                         borderWidth: 1,
                       }
                     : styles.rangeBtn
@@ -135,7 +143,7 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
               styles.expandBtn,
               {
                 backgroundColor: colors['colors_button_ghost'],
-                borderColor: colors['colors_button_outline-border'],
+                borderColor: activeBorderColor,
                 borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
               },
               pressed && styles.pressed,
@@ -174,17 +182,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     paddingTop: 8,
     paddingHorizontal: 8,
     gap: 12,
+    rowGap: 8,
     flexShrink: 0,
-    height: 52,
+    minHeight: 52,
   },
   rangeButtonsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    rowGap: 6,
     flexWrap: 'wrap',
+    flexShrink: 1,
   },
   rangeBtn: {
     minWidth: 44,
@@ -194,6 +206,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
   },
   expandBtn: {
     width: 44,
