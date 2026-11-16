@@ -1,13 +1,14 @@
 'use client';
 
+// src/components/layout/AppHeader.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   Pressable,
+  Modal,
   StyleSheet,
   ViewStyle,
-  useColorScheme,
   ScrollView,
 } from 'react-native';
 import Image from 'next/image';
@@ -19,20 +20,21 @@ import GearIcon from '@/assets/icons/gear.svg';
 import ProfileIcon from '@/assets/icons/profile.svg';
 import StatsIcon from '@/assets/icons/stats.svg';
 import ChatArrowGrowIcon from '@/assets/icons/chat-arrow-grow.svg';
+import BrightnessIcon from '@/assets/icons/brightness.svg';
+import MoonIcon from '@/assets/icons/moon.svg';
 
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Button } from '@/components/ui/Button';
 import { MarketCashInfo } from '@/components/features/market/components/MarketCashInfo';
 import { CreateAlertModal } from '@/components/features/market/components/CreateAlertModal';
 import { LoginModal } from '@/components/auth/LoginModal';
+import { VDivider } from '@/components/ui/VDivider';
 import { SignUpModal } from '@/components/auth/SignUpModal';
 import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { alertApi, AlertResponse } from '@/lib/api/alertApi';
+import { tradeApi } from '@/lib/api/tradeApi';
 import { StreamStatus } from '@/lib/hooks/useMarketStream';
-
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 import { TimeRange, TIME_RANGES } from '@/types/timeRange';
 
 export type HeaderVariant = 'guest' | 'authenticated' | 'chart';
@@ -60,7 +62,7 @@ export interface AppHeaderProps {
   cashAmount?: number | string;
   assetCode?: string;
   currentPrice?: number;
-  selectedRange?: TimeRange;
+  defaultRange?: TimeRange;
   onSelectRange?: (range: TimeRange) => void;
   chartType?: 'candlestick' | 'area';
   onToggleChartType?: () => void;
@@ -80,11 +82,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onSelectNav,
   searchValue,
   onSearchChange,
-  cashAmount = 100000,
+  cashAmount,
   assetCode = 'AAPL',
   currentPrice,
-  selectedRange = '1D',
   onSelectRange,
+  defaultRange = 'ALL',
   chartType = 'candlestick',
   onToggleChartType,
   onLoginPress,
@@ -98,21 +100,66 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
 
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { theme, toggleTheme } = useAppTheme();
+  const { colors, isDark } = theme;
 
+  const { user, isAuthenticated, isLoading, logout } = useAuthStore();
+
+  const [realCashBalance, setRealCashBalance] = useState<number | null>(null);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
   const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
   const [internalSearch, setInternalSearch] = useState(searchValue ?? '');
+  const [selectedRange, setSelectedRange] = useState<TimeRange>(defaultRange);
 
-  // État des notifications reçues
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<AlertResponse[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
+
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // 1. Chargement des liquidités réelles
+  const fetchLiveBalance = useCallback(async () => {
+    if (!isAuthenticated) {
+      setRealCashBalance(null);
+      return;
+    }
+    try {
+      const pnl = await tradeApi.getPnL();
+      if (pnl && typeof pnl.currentBalance === 'number') {
+        setRealCashBalance(pnl.currentBalance);
+      }
+    } catch {
+      // Ignoré
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    void fetchLiveBalance();
+
+    const handlePortfolioUpdate = () => {
+      void fetchLiveBalance();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('portfolio:updated', handlePortfolioUpdate);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('portfolio:updated', handlePortfolioUpdate);
+      }
+    };
+  }, [fetchLiveBalance]);
+
+  const displayedCashAmount = useMemo(() => {
+    if (realCashBalance !== null) return realCashBalance;
+    if (cashAmount !== undefined && cashAmount !== null) return cashAmount;
+    return 0;
+  }, [realCashBalance, cashAmount]);
 
   const fetchTriggeredAlerts = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -122,7 +169,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       const triggered = alerts.filter((a) => a.isTriggered);
       setNotifications(triggered);
     } catch {
-      // Ignorer si échec temporaire
+      // Ignoré
     } finally {
       setNotifLoading(false);
     }
@@ -194,8 +241,29 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   };
 
+  const handleToggleSettings = () => {
+    setIsNotifDropdownOpen(false);
+    setIsSettingsModalOpen((prev) => !prev);
+    onSettingsPress?.();
+  };
+
+  const handleLogoutConfirm = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      setRealCashBalance(null);
+      setNotifications([]);
+      setIsSettingsModalOpen(false);
+      router.push('/');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   const handleSelectTimeRange = (range: TimeRange) => {
     onSelectRange?.(range);
+    setSelectedRange(range);
     setIsRangeMenuOpen(false);
   };
 
@@ -204,6 +272,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       onProfilePress();
     } else if (isAuthenticated) {
       router.push('/user');
+    } else if (onLoginPress) {
+      onLoginPress();
     } else {
       setIsLoginModalOpen(true);
     }
@@ -222,9 +292,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   }, [streamStatus]);
 
+  const iconFilter = useMemo(() => {
+    return isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
+  }, [isDark]);
+
+  const logoFilter = useMemo(() => {
+    return isDark ? 'brightness(0) invert(1)' : 'none';
+  }, [isDark]);
+
+  const dividerColor = colors['colors_divider_text'] ?? (isDark ? '#30363D' : '#E2E8F0');
+
   return (
     <>
-      {/* Bandeau d'alerte réseau en cas de rupture STOMP/WebSocket */}
       {streamStatus && streamStatus !== 'CONNECTED' && (
         <View style={styles.reconnectBanner}>
           <View style={[styles.networkDot, { backgroundColor: networkStatusColor }]} />
@@ -240,8 +319,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         style={[
           styles.headerContainer,
           {
-            backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-            borderBottomColor: theme['colors_divider_text'] ?? '#D1D5DB',
+            backgroundColor: colors['colors_bg_secondary'],
+            borderBottomColor: dividerColor,
           },
           style,
         ]}
@@ -249,18 +328,24 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {/* 1. SECTION GAUCHE */}
         <View style={styles.leftGroup}>
           <Pressable onPress={handleLogoPress} style={styles.logoRow}>
-            <Image src={LogoSvg} width={32} height={32} alt="NewTrading" />
+            <Image
+              src={LogoSvg}
+              width={32}
+              height={32}
+              alt="NewTrading"
+              priority
+              style={{ filter: logoFilter }}
+            />
             {computedVariant !== 'chart' && (
               <Text
                 style={[
                   styles.brandTitle,
-                  { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                  { color: colors['colors_text_primary'] },
                 ]}
               >
                 NewTrading
               </Text>
             )}
-            {/* Pastille de statut réseau */}
             {streamStatus && (
               <View
                 style={[
@@ -283,7 +368,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       styles.navItem,
                       isActive && [
                         styles.activeNavItem,
-                        { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                        { backgroundColor: colors['colors_bg_primary'] },
                       ],
                     ]}
                   >
@@ -291,7 +376,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       style={[
                         styles.navText,
                         isActive ? styles.navTextActive : styles.navTextInactive,
-                        { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                        { color: colors['colors_text_primary'] },
                       ]}
                     >
                       {item.label}
@@ -302,7 +387,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </View>
           )}
 
-          {/* Outils vue Graphique */}
           {computedVariant === 'chart' && (
             <View style={styles.chartToolsGroup}>
               <View style={styles.chartSearchWrapper}>
@@ -320,22 +404,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 />
               </View>
 
-              <View
-                style={[
-                  styles.separator,
-                  { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
-                ]}
-              />
+              <VDivider/>
 
               <View style={styles.rangeSelectorWrapper}>
                 <Pressable
                   onPress={() => setIsRangeMenuOpen((prev) => !prev)}
                   style={[
                     styles.rangeButton,
-                    { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                    { backgroundColor: colors['colors_bg_primary'] },
                   ]}
                 >
-                  <Text style={[styles.chipText, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+                  <Text style={[styles.chipText, { color: colors['colors_text_primary'] }]}>
                     {selectedRange}
                   </Text>
                 </Pressable>
@@ -345,8 +424,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     style={[
                       styles.rangeDropdown,
                       {
-                        backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                        borderColor: theme['colors_divider_text'] ?? '#E5E7EB',
+                        backgroundColor: colors['colors_bg_secondary'],
+                        borderColor: dividerColor,
                       },
                     ]}
                   >
@@ -359,7 +438,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                           style={[
                             styles.rangeDropdownItem,
                             isSelected && {
-                              backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6',
+                              backgroundColor: colors['colors_bg_primary'],
                             },
                           ]}
                         >
@@ -368,8 +447,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                               styles.rangeDropdownText,
                               {
                                 color: isSelected
-                                  ? '#2563EB'
-                                  : (theme['colors_text_primary'] ?? '#0B0F19'),
+                                  ? colors['colors_badge_primary-action-bg']
+                                  : colors['colors_text_primary'],
                                 fontWeight: isSelected ? '700' : '500',
                               },
                             ]}
@@ -383,18 +462,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 )}
               </View>
 
-              <View
-                style={[
-                  styles.separator,
-                  { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
-                ]}
-              />
+              <VDivider/>
 
               <Pressable
                 onPress={onToggleChartType}
                 style={[
                   styles.iconButton,
-                  { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                  { backgroundColor: colors['colors_bg_primary'] },
                 ]}
               >
                 <Image
@@ -402,28 +476,30 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   width={16}
                   height={16}
                   alt={chartType === 'candlestick' ? 'Vue Ligne' : 'Vue Bougies'}
+                  style={{ filter: iconFilter }}
                 />
               </Pressable>
 
-              <View
-                style={[
-                  styles.separator,
-                  { backgroundColor: theme['colors_divider_text'] ?? '#D1D5DB' },
-                ]}
-              />
+              <VDivider/>
 
               <Pressable
                 onPress={handleOpenAlert}
                 style={[
                   styles.alarmChip,
-                  { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
+                  { backgroundColor: colors['colors_bg_primary'] },
                 ]}
               >
-                <Image src={BellIcon} width={14} height={14} alt="" />
+                <Image
+                  src={BellIcon}
+                  width={14}
+                  height={14}
+                  alt=""
+                  style={{ filter: iconFilter }}
+                />
                 <Text
                   style={[
                     styles.chipText,
-                    { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                    { color: colors['colors_text_primary'] },
                   ]}
                 >
                   Alarme
@@ -454,16 +530,35 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <View style={styles.rightGroup}>
           {isLoading ? (
             <View style={styles.authLoadingPlaceholder} />
-          ) : computedVariant === 'guest' ? (
+          ) : !isAuthenticated ? (
             <View style={styles.guestActionRow}>
+              {/* Thème switch */}
+              <Pressable
+                onPress={toggleTheme}
+                accessibilityLabel="Changer de thème"
+                style={[
+                  styles.actionIconBtn,
+                  { backgroundColor: colors['colors_bg_primary'], borderRadius: 8 },
+                ]}
+              >
+                <Image
+                  src={isDark ? BrightnessIcon : MoonIcon}
+                  width={18}
+                  height={18}
+                  alt={isDark ? 'Mode clair' : 'Mode sombre'}
+                  style={{ filter: iconFilter }}
+                />
+              </Pressable>
+
               <Button
-                label="Connexion"
+                label="Se connecter"
                 variant="outline"
                 shape="rounded"
                 size="sm"
                 onPress={onLoginPress ?? (() => setIsLoginModalOpen(true))}
                 style={styles.headerActionButton}
               />
+
               <Button
                 label="Ouvrir un compte"
                 variant="primary"
@@ -475,15 +570,40 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </View>
           ) : (
             <View style={styles.authActionRow}>
-              <MarketCashInfo label="LIQUIDITÉS" amount={cashAmount} />
+              <MarketCashInfo label="LIQUIDITÉS" amount={displayedCashAmount} />
+
               <View style={styles.iconActions}>
-                {/* Cloche avec badge et dropdown de notifications */}
+                {/* Thème switch */}
+                <Pressable
+                  onPress={toggleTheme}
+                  accessibilityLabel="Changer de thème"
+                  style={[
+                    styles.actionIconBtn,
+                    { backgroundColor: colors['colors_bg_primary'], borderRadius: 8 },
+                  ]}
+                >
+                  <Image
+                    src={isDark ? BrightnessIcon : MoonIcon}
+                    width={18}
+                    height={18}
+                    alt={isDark ? 'Mode clair' : 'Mode sombre'}
+                    style={{ filter: iconFilter }}
+                  />
+                </Pressable>
+
+                {/* Notifications */}
                 <View style={styles.notifWrapper}>
                   <Pressable
                     onPress={handleToggleNotifications}
                     style={styles.actionIconBtn}
                   >
-                    <Image src={BellIcon} width={20} height={20} alt="Alertes" />
+                    <Image
+                      src={BellIcon}
+                      width={20}
+                      height={20}
+                      alt="Alertes"
+                      style={{ filter: iconFilter }}
+                    />
                     {notifications.length > 0 && (
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>
@@ -493,57 +613,97 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     )}
                   </Pressable>
 
-                  {/* Dropdown des notifications reçues */}
                   {isNotifDropdownOpen && (
                     <View
                       style={[
                         styles.notifDropdown,
                         {
-                          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-                          borderColor: theme['colors_divider_text'] ?? '#E5E7EB',
+                          backgroundColor: colors['colors_bg_secondary'],
+                          borderColor: dividerColor,
                         },
                       ]}
                     >
-                      <View style={styles.notifHeader}>
+                      <View style={[styles.notifHeader, { borderBottomColor: dividerColor }]}>
                         <Text
                           style={[
                             styles.notifHeaderTitle,
-                            { color: theme['colors_text_primary'] ?? '#0B0F19' },
+                            { color: colors['colors_text_primary'] },
                           ]}
                         >
                           Notifications ({notifications.length})
                         </Text>
                         <Pressable onPress={() => handleOpenAlert()}>
-                          <Text style={styles.notifActionLink}>+ Créer</Text>
+                          <Text
+                            style={[
+                              styles.notifActionLink,
+                              { color: colors['colors_badge_primary-action-bg'] },
+                            ]}
+                          >
+                            + Créer
+                          </Text>
                         </Pressable>
                       </View>
 
                       <ScrollView style={styles.notifList} showsVerticalScrollIndicator={false}>
                         {notifLoading ? (
-                          <Text style={styles.notifEmptyText}>Chargement...</Text>
+                          <Text style={[styles.notifEmptyText, { color: colors['colors_text_secondary'] }]}>
+                            Chargement...
+                          </Text>
                         ) : notifications.length === 0 ? (
-                          <Text style={styles.notifEmptyText}>Aucune alerte reçue</Text>
+                          <Text style={[styles.notifEmptyText, { color: colors['colors_text_secondary'] }]}>
+                            Aucune alerte reçue
+                          </Text>
                         ) : (
                           notifications.map((notif) => (
                             <Pressable
                               key={notif.id}
-                              style={styles.notifItem}
+                              style={[
+                                styles.notifItem,
+                                { borderBottomColor: dividerColor },
+                              ]}
                               onPress={() => {
                                 setIsNotifDropdownOpen(false);
                                 router.push(`/trade?symbol=${encodeURIComponent(notif.assetCode)}`);
                               }}
                             >
                               <View style={styles.notifItemHeader}>
-                                <Text style={styles.notifAsset}>{notif.assetCode}</Text>
-                                <Text style={styles.notifTagTriggered}>Déclenchée</Text>
+                                <Text
+                                  style={[
+                                    styles.notifAsset,
+                                    { color: colors['colors_text_primary'] },
+                                  ]}
+                                >
+                                  {notif.assetCode}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.notifTagTriggered,
+                                    {
+                                      color: colors['colors_badge_down-text'],
+                                      backgroundColor: colors['colors_badge_down-bg'],
+                                    },
+                                  ]}
+                                >
+                                  Déclenchée
+                                </Text>
                               </View>
-                              <Text style={styles.notifDetails}>
+                              <Text
+                                style={[
+                                  styles.notifDetails,
+                                  { color: colors['colors_text_secondary'] },
+                                ]}
+                              >
                                 Seuil {notif.triggerCondition === 'ABOVE' ? '≥' : '≤'}{' '}
                                 {notif.targetPrice.toLocaleString('fr-FR', {
                                   minimumFractionDigits: 2,
                                 })} $
                               </Text>
-                              <Text style={styles.notifDate}>
+                              <Text
+                                style={[
+                                  styles.notifDate,
+                                  { color: colors['colors_text_secondary'] },
+                                ]}
+                              >
                                 {new Date(notif.createdAt).toLocaleDateString('fr-FR', {
                                   day: '2-digit',
                                   month: '2-digit',
@@ -559,20 +719,107 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   )}
                 </View>
 
-                <Pressable onPress={onSettingsPress} style={styles.actionIconBtn}>
-                  <Image src={GearIcon} width={20} height={20} alt="Paramètres" />
-                </Pressable>
+                {/* Paramètres -> Petite modale de déconnexion */}
+                <View style={styles.settingsWrapper}>
+                  <Pressable
+                    onPress={handleToggleSettings}
+                    accessibilityLabel="Paramètres"
+                    style={[
+                      styles.actionIconBtn,
+                      isSettingsModalOpen && {
+                        backgroundColor: colors['colors_bg_primary'],
+                        borderRadius: 8,
+                      },
+                    ]}
+                  >
+                    <Image
+                      src={GearIcon}
+                      width={20}
+                      height={20}
+                      alt="Paramètres"
+                      style={{ filter: iconFilter }}
+                    />
+                  </Pressable>
+
+                  <Modal
+                    visible={isSettingsModalOpen}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setIsSettingsModalOpen(false)}
+                  >
+                    <Pressable
+                      style={styles.settingsBackdrop}
+                      onPress={() => setIsSettingsModalOpen(false)}
+                    >
+                      <Pressable
+                        onPress={(e) => e.stopPropagation()}
+                        style={[
+                          styles.settingsPopoverModal,
+                          {
+                            backgroundColor: colors['colors_bg_secondary'],
+                            borderColor: dividerColor,
+                          },
+                        ]}
+                      >
+                        {user?.email ? (
+                          <View
+                            style={[
+                              styles.settingsUserRow,
+                              { borderBottomColor: dividerColor },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.settingsUserEmail,
+                                { color: colors['colors_text_secondary'] },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {user.email}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        <Pressable
+                          onPress={() => void handleLogoutConfirm()}
+                          disabled={isLoggingOut}
+                          style={({ pressed }) => [
+                            styles.logoutActionRow,
+                            pressed && {
+                              backgroundColor: colors['colors_bg_primary'],
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.logoutActionText,
+                              { color: colors['colors_button_sell'] },
+                            ]}
+                          >
+                            {isLoggingOut ? 'Déconnexion...' : 'Se déconnecter'}
+                          </Text>
+                        </Pressable>
+                      </Pressable>
+                    </Pressable>
+                  </Modal>
+                </View>
+
+                {/* Profil Utilisateur SVG */}
                 <Pressable
                   onPress={handleProfileClick}
                   style={[
                     styles.actionIconBtn,
                     pathname?.startsWith('/user') && [
                       styles.activeProfileBtn,
-                      { backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6' },
                     ],
                   ]}
                 >
-                  <Image src={ProfileIcon} width={20} height={20} alt="Profil" />
+                  <Image
+                    src={ProfileIcon}
+                    width={24}
+                    height={24}
+                    alt="Profil"
+                  />
                 </Pressable>
               </View>
             </View>
@@ -591,7 +838,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <LoginModal
         visible={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        onSuccess={() => setIsLoginModalOpen(false)}
+        onSuccess={() => {
+          setIsLoginModalOpen(false);
+          void fetchLiveBalance();
+        }}
         onNavigateToSignUp={() => {
           setIsLoginModalOpen(false);
           setIsSignUpModalOpen(true);
@@ -601,7 +851,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <SignUpModal
         visible={isSignUpModalOpen}
         onClose={() => setIsSignUpModalOpen(false)}
-        onSuccess={() => setIsSignUpModalOpen(false)}
+        onSuccess={() => {
+          setIsSignUpModalOpen(false);
+          void fetchLiveBalance();
+        }}
         onNavigateToLogin={() => {
           setIsSignUpModalOpen(false);
           setIsLoginModalOpen(true);
@@ -657,45 +910,41 @@ const styles = StyleSheet.create({
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+    gap: 8,
     cursor: 'pointer',
   },
   brandTitle: {
-    fontSize: primitives['typography_font size_font-size-18'] ?? 18,
-    lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
+    gap: 4,
   },
   navItem: {
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
   },
   activeNavItem: {},
   navText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+    fontSize: 14,
+    lineHeight: 20,
   },
   navTextActive: { fontWeight: '700' },
   navTextInactive: { fontWeight: '500' },
   chartToolsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
+    height: 30,
+    gap: 8,
   },
   chartSearchWrapper: {
     width: 140,
     overflow: 'hidden',
-  },
-  separator: {
-    width: 1,
-    height: 18,
-    marginHorizontal: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   rangeSelectorWrapper: {
     position: 'relative',
@@ -705,7 +954,7 @@ const styles = StyleSheet.create({
     minWidth: 38,
     height: 30,
     paddingHorizontal: 6,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -735,16 +984,16 @@ const styles = StyleSheet.create({
     minHeight: 30,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
   },
   chipText: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+    fontSize: 12,
     fontWeight: '700',
   },
   iconButton: {
     width: 30,
     height: 30,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -776,7 +1025,7 @@ const styles = StyleSheet.create({
   authActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 32,
   },
   iconActions: {
     flexDirection: 'row',
@@ -787,15 +1036,51 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 90,
   },
+  settingsWrapper: {
+    position: 'relative',
+    zIndex: 95,
+  },
+  settingsBackdrop: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  settingsPopoverModal: {
+    position: 'absolute',
+    top: 60,
+    right: 56,
+    minWidth: 210,
+    borderRadius: 8,
+    borderWidth: 1,
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16)',
+    overflow: 'hidden',
+  },
+  settingsUserRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  settingsUserEmail: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  logoutActionRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
+  logoutActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   actionIconBtn: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   activeProfileBtn: {
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
+    borderRadius: 8,
   },
   badge: {
     position: 'absolute',
@@ -833,7 +1118,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   notifHeaderTitle: {
     fontSize: 13,
@@ -842,7 +1126,6 @@ const styles = StyleSheet.create({
   notifActionLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2563EB',
   },
   notifList: {
     maxHeight: 300,
@@ -850,14 +1133,12 @@ const styles = StyleSheet.create({
   notifEmptyText: {
     padding: 16,
     fontSize: 12,
-    color: '#9CA3AF',
     textAlign: 'center',
   },
   notifItem: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   notifItemHeader: {
     flexDirection: 'row',
@@ -868,25 +1149,20 @@ const styles = StyleSheet.create({
   notifAsset: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0B0F19',
   },
   notifTagTriggered: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#DC2626',
-    backgroundColor: '#FEE2E2',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   notifDetails: {
     fontSize: 12,
-    color: '#4B5563',
     marginBottom: 2,
   },
   notifDate: {
     fontSize: 10,
-    color: '#9CA3AF',
   },
 });
 

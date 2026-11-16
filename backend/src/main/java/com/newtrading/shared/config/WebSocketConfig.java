@@ -14,6 +14,7 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.util.StringUtils;
@@ -35,59 +36,75 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // Active le broker mémoire pour la diffusion vers les clients
         registry.enableSimpleBroker("/topic", "/queue");
-        // Préfixe pour les messages envoyés depuis le client vers le serveur
         registry.setApplicationDestinationPrefixes("/app");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Endpoint d'entrée STOMP avec fallback SockJS et CORS configuré
+        // 1. WebSocket natif pur (utilisé par @stomp/stompjs)
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("http://localhost:3000", "http://127.0.0.1:3000")
-                .withSockJS();
+                .setAllowedOriginPatterns("*");
 
-        // Endpoint WebSocket natif (pour clients mobiles sans SockJS)
+        // 2. Endpoint SockJS de repli
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("http://localhost:3000", "http://127.0.0.1:3000");
+                .setAllowedOriginPatterns("*")
+                .withSockJS();
     }
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(new ChannelInterceptor() {
-            @Override
-            public Message<?> preSend(Message<?> message, MessageChannel channel) {
-                StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        registration.interceptors(new JwtChannelInterceptor(jwtTokenProvider));
+    }
 
-                if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
-                    String authHeader = accessor.getFirstNativeHeader("Authorization");
+    private static final class JwtChannelInterceptor implements ChannelInterceptor {
 
-                    if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-                        String token = authHeader.substring(7);
+        private final JwtTokenProvider jwtTokenProvider;
 
-                        if (jwtTokenProvider.validateToken(token)) {
-                            UUID userId = jwtTokenProvider.getUserIdFromToken(token);
-                            String email = jwtTokenProvider.getEmailFromToken(token);
+        private JwtChannelInterceptor(JwtTokenProvider jwtTokenProvider) {
+            this.jwtTokenProvider = jwtTokenProvider;
+        }
 
-                            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                                    email,
-                                    null,
-                                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
-                            );
-                            accessor.setUser(auth);
-                            log.info("Client WebSocket authentifié avec succès : userId={}, email={}", userId, email);
-                        } else {
-                            log.warn("Token JWT invalide lors du handshake STOMP CONNECT");
-                            throw new IllegalArgumentException("Token JWT invalide ou expiré");
-                        }
+        @Override
+        public Message<?> preSend(Message<?> message, MessageChannel channel) {
+            StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+
+            if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
+                String authHeader = accessor.getFirstNativeHeader("Authorization");
+
+                if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+                    String token = authHeader.substring(7);
+
+                    if (jwtTokenProvider.validateToken(token)) {
+                        UUID userId = jwtTokenProvider.getUserIdFromToken(token);
+                        String email = jwtTokenProvider.getEmailFromToken(token);
+
+                        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                email,
+                                null,
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
+                        );
+                        accessor.setUser(auth);
+                        log.info("Client WebSocket authentifié : userId={}, email={}", userId, email);
                     } else {
-                        log.warn("Tentative de connexion WebSocket sans header Authorization");
-                        throw new IllegalArgumentException("Header Authorization manquant");
+                        log.warn("Token JWT invalide lors du CONNECT STOMP — bascule en anonyme");
+                        setAnonymousUser(accessor);
                     }
+                } else {
+                    // Connexion anonyme autorisée pour la consultation publique des cours
+                    setAnonymousUser(accessor);
                 }
-                return message;
             }
-        });
+            return message;
+        }
+
+        private void setAnonymousUser(StompHeaderAccessor accessor) {
+            AnonymousAuthenticationToken anonymous = new AnonymousAuthenticationToken(
+                    "ws-key",
+                    "anonymousUser",
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))
+            );
+            accessor.setUser(anonymous);
+        }
     }
 }

@@ -1,9 +1,8 @@
-// components/table/PortfolioTable.tsx
+'use client';
+
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, useColorScheme } from 'react-native';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface PortfolioTableProps {
   children: React.ReactNode;
@@ -11,16 +10,22 @@ export interface PortfolioTableProps {
 }
 
 export const PortfolioTable: React.FC<PortfolioTableProps> = ({ children, style }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
+
+  const bgCard = colors['colors_bg_secondary'];
+  const borderCard = colors['colors_divider_text'];
+  const textHeader = colors['colors_text_primary'];
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderColor: theme['colors_button_outline-border'] ?? '#D1D5DB',
+          backgroundColor: bgCard,
+          borderColor: borderCard,
+          borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
+          borderWidth: primitives['border width_border-thin'] ?? 1,
         },
         style,
       ]}
@@ -29,28 +34,97 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ children, style 
       <View
         style={[
           styles.headerRow,
-          { borderBottomColor: theme['colors_divider_text'] ?? '#E5E7EB' },
+          {
+            borderBottomColor: borderCard,
+            paddingVertical: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+            paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+            borderBottomWidth: primitives['border width_border-thin'] ?? 1,
+          },
         ]}
       >
-        <Text style={[styles.headerCell, { flex: 2.2, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.headerCell,
+            {
+              flex: 2.2,
+              color: textHeader,
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+            },
+          ]}
+        >
           ACTIF / TICKER
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.5, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.headerCell,
+            {
+              flex: 1.5,
+              color: textHeader,
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+            },
+          ]}
+        >
           PRIX MOYEN (PRU)
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.5, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.headerCell,
+            {
+              flex: 1.5,
+              color: textHeader,
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+            },
+          ]}
+        >
           COURS ACTUEL
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.8, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.headerCell,
+            {
+              flex: 1.8,
+              color: textHeader,
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+            },
+          ]}
+        >
           QUANTITÉ / VALORISATION
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.5, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.headerCell,
+            {
+              flex: 1.5,
+              color: textHeader,
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+            },
+          ]}
+        >
           P&L NON RÉALISÉ ($)
         </Text>
-        <Text style={[styles.headerCell, { flex: 1.2, color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.headerCell,
+            {
+              flex: 1.2,
+              color: textHeader,
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+            },
+          ]}
+        >
           P&L (%)
         </Text>
-        <Text style={[styles.headerCell, { flex: 1, textAlign: 'right', color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.headerCell,
+            {
+              flex: 1,
+              textAlign: 'right',
+              color: textHeader,
+              fontSize: primitives['typography_font size_font-size-12'] ?? 12,
+            },
+          ]}
+        >
           ACTION
         </Text>
       </View>
@@ -64,20 +138,16 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ children, style 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
     overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    borderBottomWidth: primitives['border width_border-thin'] ?? 1,
   },
   headerCell: {
-    fontSize: primitives['typography_font size_font-size-12'] ?? 12,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
 });
+
+export default PortfolioTable;

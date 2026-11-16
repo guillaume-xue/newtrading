@@ -1,12 +1,10 @@
-// src/components/features/market/components/CommoditiesAndCurrenciesWidget.tsx
 'use client';
 
+// src/components/features/market/components/CommoditiesAndCurrenciesWidget.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { MarketIndexCard } from './MarketIndexCard';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface CommoditiesAndCurrenciesWidgetProps {
   title?: string;
@@ -46,16 +44,20 @@ export const CommoditiesAndCurrenciesWidget: React.FC<CommoditiesAndCurrenciesWi
   onViewAllPress,
   onAssetPress,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderColor: theme['colors_button_outline-border'] ?? '#E5E7EB',
+          backgroundColor: colors['colors_bg_secondary'],
+          borderColor: colors['colors_button_outline-border'],
+          borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
+          borderWidth: primitives['border width_border-thin'] ?? 1,
+          padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+          gap: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
         },
       ]}
     >
@@ -63,7 +65,11 @@ export const CommoditiesAndCurrenciesWidget: React.FC<CommoditiesAndCurrenciesWi
       <Text
         style={[
           styles.title,
-          { color: theme['colors_text_primary'] ?? '#0B0F19' },
+          {
+            color: colors['colors_text_primary'],
+            fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+            lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+          },
         ]}
       >
         {title}
@@ -99,10 +105,14 @@ export const CommoditiesAndCurrenciesWidget: React.FC<CommoditiesAndCurrenciesWi
         <Text
           style={[
             styles.viewAllText,
-            { color: theme['colors_text_primary'] ?? '#0B0F19' },
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
           ]}
         >
-          Consulter d&apos;autre &gt;
+          Consulter d&apos;autres actifs &gt;
         </Text>
       </Pressable>
     </View>
@@ -112,15 +122,9 @@ export const CommoditiesAndCurrenciesWidget: React.FC<CommoditiesAndCurrenciesWi
 const styles = StyleSheet.create({
   container: {
     width: 360,
-    borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
-    padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    gap: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
     justifyContent: 'space-between',
   },
   title: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
@@ -128,7 +132,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    padding: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+    padding: 12,
     maxWidth: '100%',
   },
   viewAllBtn: {
@@ -137,11 +141,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   viewAllText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '700',
   },
   pressed: {
     opacity: 0.7,
   },
 });
+
+export default CommoditiesAndCurrenciesWidget;

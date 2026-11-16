@@ -1,4 +1,6 @@
-// components/WidgetHeader.tsx
+// components/ui/WidgetHeader.tsx
+'use client';
+
 import React from 'react';
 import {
   View,
@@ -7,12 +9,9 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  useColorScheme,
 } from 'react-native';
 
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface WidgetHeaderProps {
   /**
@@ -44,15 +43,30 @@ export const WidgetHeader: React.FC<WidgetHeaderProps> = ({
   style,
   titleStyle,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
+
+  const titleColor = colors['colors_text_primary'];
+  const dotColor = colors['colors_text_secondary'];
 
   return (
-    <View style={[styles.container, style]}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+        },
+        style,
+      ]}
+    >
       <Text
         style={[
           styles.title,
-          { color: theme['colors_text_primary'] ?? '#0B0F19' },
+          {
+            color: titleColor,
+            fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+            lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+          },
           titleStyle,
         ]}
         numberOfLines={1}
@@ -66,31 +80,20 @@ export const WidgetHeader: React.FC<WidgetHeaderProps> = ({
         <Pressable
           onPress={onMenuPress}
           hitSlop={8}
+          accessibilityLabel="Options du widget"
           style={({ pressed }) => [
             styles.menuButton,
+            {
+              padding: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
+            },
             pressed && styles.pressed,
           ]}
         >
           {/* Trois points horizontaux alignés */}
           <View style={styles.dotsRow}>
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: theme['colors_text_primary'] ?? '#0B0F19' },
-              ]}
-            />
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: theme['colors_text_primary'] ?? '#0B0F19' },
-              ]}
-            />
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: theme['colors_text_primary'] ?? '#0B0F19' },
-              ]}
-            />
+            <View style={[styles.dot, { backgroundColor: dotColor }]} />
+            <View style={[styles.dot, { backgroundColor: dotColor }]} />
+            <View style={[styles.dot, { backgroundColor: dotColor }]} />
           </View>
         </Pressable>
       )}
@@ -105,17 +108,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
   },
   title: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '800',
     letterSpacing: -0.2,
     textTransform: 'uppercase',
   },
   menuButton: {
-    padding: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -133,3 +132,5 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 });
+
+export default WidgetHeader;

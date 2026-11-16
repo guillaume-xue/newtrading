@@ -1,22 +1,9 @@
+// src/app/login/page.tsx
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
-import { AuthSelectionScreen } from '@/screens/AuthSelectionScreen';
+import { AuthRoutePage } from '@/components/auth/AuthRoutePage';
 
 export default function LoginPage() {
-  const router = useRouter();
-
-  return (
-    <AuthSelectionScreen
-      initialModal="login"
-      onModalChange={(modal) => {
-        if (modal === 'signup') {
-          router.push('/signup');
-        }
-      }}
-      onAuthSuccess={() => router.push('/')}
-      onBack={() => router.push('/')}
-    />
-  );
+  return <AuthRoutePage mode="login" />;
 }

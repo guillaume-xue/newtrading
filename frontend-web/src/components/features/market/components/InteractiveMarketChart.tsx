@@ -1,73 +1,84 @@
-// src/components/features/market/components/InteractiveMarketChart.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { View, StyleSheet, Pressable, useColorScheme } from 'react-native';
+// src/components/features/market/components/InteractiveMarketChart.tsx
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, StyleSheet, Pressable } from 'react-native';
 import Image from 'next/image';
 
 import { TradingChart } from './TradingChart';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/Switch';
-import { TimeRange } from '@/types/timeRange';
+import { TimeRange, TIME_RANGES } from '@/types/timeRange';
 import ExpandIcon from '@/assets/icons/fi-rr-expand.svg';
-
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 interface InteractiveMarketChartProps {
   symbol: string;
-  changePercent?: number | string; // <-- Ajout de la prop
+  changePercent?: number | string;
   defaultRange?: TimeRange;
+  disableZoom?: boolean;
   onFullscreenPress?: () => void;
+  onRangeChange?: (range: TimeRange) => void;
 }
-
-const RANGES: { label: string; value: TimeRange }[] = [
-  { label: '1D', value: '1D' },
-  { label: '3D', value: '3M' },
-  { label: '1M', value: '1M' },
-  { label: '1Y', value: '1Y' },
-  { label: '5Y', value: '5Y' },
-  { label: 'Tout', value: 'ALL' },
-];
 
 export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
   symbol,
   changePercent,
-  defaultRange = '1D',
+  defaultRange = 'ALL',
+  disableZoom = false,
   onFullscreenPress,
+  onRangeChange,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
 
   const [selectedRange, setSelectedRange] = useState<TimeRange>(defaultRange);
   const [chartMode, setChartMode] = useState<'left' | 'right'>('right');
 
+  useEffect(() => {
+    setSelectedRange(defaultRange);
+  }, [defaultRange]);
+
+  const handleSelectRange = (range: TimeRange) => {
+    setSelectedRange(range);
+    onRangeChange?.(range);
+  };
+
   // Détection positif / négatif
-  const numericChange =
-    typeof changePercent === 'number'
-      ? changePercent
-      : changePercent != null
-      ? parseFloat(String(changePercent).replace(',', '.').replace('%', '').trim())
-      : null;
+  const numericChange = useMemo(() => {
+    if (typeof changePercent === 'number') return changePercent;
+    if (changePercent != null) {
+      return parseFloat(String(changePercent).replace(',', '.').replace('%', '').trim());
+    }
+    return null;
+  }, [changePercent]);
 
   const isPositive = numericChange !== null ? numericChange >= 0 : true;
 
-  // Couleurs dynamiques (Vert / Rouge, ou défaut si non renseigné)
-  const lineColor =
-    changePercent != null
-      ? isPositive ? '#16A34A' : '#DC2626'
-      : '#2563EB';
+  // Couleurs dynamiques basées sur les tokens du thème
+  const lineColor = useMemo(() => {
+    if (changePercent == null) return colors['colors_badge_primary-action-bg'];
+    return isPositive ? colors['colors_button_buy'] : colors['colors_button_sell'];
+  }, [changePercent, isPositive, colors]);
 
-  const topColor =
-    changePercent != null
-      ? isPositive ? 'rgba(22, 163, 74, 0.25)' : 'rgba(220, 38, 38, 0.25)'
-      : 'rgba(37, 99, 235, 0.2)';
+  const topColor = useMemo(() => {
+    if (changePercent == null) {
+      return isDark ? 'rgba(37, 99, 235, 0.35)' : 'rgba(37, 99, 235, 0.2)';
+    }
+    return isPositive ? 'rgba(5, 150, 105, 0.25)' : 'rgba(220, 38, 38, 0.25)';
+  }, [changePercent, isPositive, isDark]);
 
-  const bottomColor =
-    changePercent != null
-      ? isPositive ? 'rgba(22, 163, 74, 0.0)' : 'rgba(220, 38, 38, 0.0)'
-      : 'rgba(37, 99, 235, 0.0)';
+  const bottomColor = useMemo(() => {
+    if (changePercent == null) return 'rgba(37, 99, 235, 0.0)';
+    return isPositive ? 'rgba(5, 150, 105, 0.0)' : 'rgba(220, 38, 38, 0.0)';
+  }, [changePercent, isPositive]);
+
+  const activeBorderColor =
+    colors['colors_button_outline-border'] ??
+    colors['colors_divider_text'] ??
+    (isDark ? '#30363D' : '#CBD5E1');
+
+  const iconFilter = isDark ? 'brightness(0) invert(1)' : 'brightness(0)';
 
   return (
     <View style={styles.container}>
@@ -77,7 +88,8 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
           symbol={symbol}
           chartType={chartMode === 'left' ? 'candlestick' : 'area'}
           selectedRange={selectedRange}
-          themeMode={scheme === 'dark' ? 'dark' : 'light'}
+          themeMode={isDark ? 'dark' : 'light'}
+          disableZoom={disableZoom}
           lineColor={lineColor}
           topColor={topColor}
           bottomColor={bottomColor}
@@ -87,21 +99,30 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
       {/* 2. Barre d'outils inférieure */}
       <View style={styles.bottomBar}>
         <View style={styles.rangeButtonsGroup}>
-          {RANGES.map((item) => {
-            const isSelected = selectedRange === item.value;
+          {TIME_RANGES.map((range) => {
+            const isSelected = selectedRange === range;
             return (
               <Button
-                key={item.label}
-                label={item.label}
+                key={range}
+                label={range}
                 size="sm"
                 variant={isSelected ? 'secondary' : 'ghost'}
                 shape="rounded"
-                onPress={() => setSelectedRange(item.value)}
+                onPress={() => handleSelectRange(range)}
+                labelStyle={{
+                  color: isSelected
+                    ? colors['colors_text_primary']
+                    : colors['colors_text_secondary'],
+                  fontWeight: isSelected ? '700' : '600',
+                  fontVariant: ['tabular-nums'],
+                }}
                 style={
                   isSelected
                     ? {
                         ...styles.rangeBtn,
-                        backgroundColor: theme['colors_bg_primary'] ?? '#F3F4F6',
+                        backgroundColor: colors['colors_bg_primary'],
+                        borderColor: activeBorderColor,
+                        borderWidth: 1,
                       }
                     : styles.rangeBtn
                 }
@@ -121,8 +142,9 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
             style={({ pressed }) => [
               styles.expandBtn,
               {
-                backgroundColor: theme['colors_button_ghost'] ?? '#E6E9EE',
-                borderColor: theme['colors_button_outline-border'] ?? 'transparent',
+                backgroundColor: colors['colors_button_ghost'],
+                borderColor: activeBorderColor,
+                borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 8,
               },
               pressed && styles.pressed,
             ]}
@@ -133,7 +155,7 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
               height={18}
               alt="Plein écran"
               style={{
-                filter: scheme === 'dark' ? 'brightness(0) invert(1)' : 'brightness(0)',
+                filter: iconFilter,
                 opacity: 0.8,
               }}
             />
@@ -143,7 +165,6 @@ export const InteractiveMarketChart: React.FC<InteractiveMarketChartProps> = ({
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -155,23 +176,27 @@ const styles = StyleSheet.create({
   chartViewport: {
     flex: 1,
     width: '100%',
-    minHeight: 0, // Permet au flex de réduire le canvas plutôt que d'écraser la barre du bas
+    minHeight: 0,
   },
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     paddingTop: 8,
     paddingHorizontal: 8,
     gap: 12,
-    flexShrink: 0, // Empêche la barre de disparaître ou d'être écrasée
-    height: 52,    // Hauteur réservée pour les boutons et le Switch
+    rowGap: 8,
+    flexShrink: 0,
+    minHeight: 52,
   },
   rangeButtonsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    rowGap: 6,
     flexWrap: 'wrap',
+    flexShrink: 1,
   },
   rangeBtn: {
     minWidth: 44,
@@ -181,11 +206,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
   },
   expandBtn: {
     width: 44,
     height: 44,
-    borderRadius: primitives['spacing & layout_border radius_radius-md'] ?? 10,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -194,3 +220,5 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.96 }],
   },
 });
+
+export default InteractiveMarketChart;

@@ -1,48 +1,20 @@
-// components/AssetAllocationCard.tsx
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ViewStyle,
-  useColorScheme,
-} from 'react-native';
+'use client';
 
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+// components/portfolio/components/AssetAllocationCard.tsx
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export type AssetCategoryVariant = 'crypto' | 'action' | 'etf';
 
 export interface AssetAllocationCardProps {
-  /**
-   * Catégorie d'actif : 'crypto' (Orange), 'action' (Bleu) ou 'etf' (Vert)
-   */
   variant?: AssetCategoryVariant;
-  /**
-   * Nom de la catégorie (ex: "Crypto", "Actions", "ETF")
-   */
   label?: string;
-  /**
-   * Pourcentage alloué (ex: 60.0 ou "60,0%")
-   */
   percentage: number | string;
-  /**
-   * Montant alloué sous forme numérique ou texte (ex: 85710 ou "85 710,00$")
-   */
   amount: number | string;
-  /**
-   * Devise monétaire (par défaut: "$")
-   */
   currency?: string;
-  /**
-   * Nombre de décimales pour les valeurs numériques (par défaut: 2 pour le montant, 1 pour le %)
-   */
   amountDecimals?: number;
   percentDecimals?: number;
-  /**
-   * Style personnalisé pour le conteneur
-   */
   style?: ViewStyle;
 }
 
@@ -56,77 +28,91 @@ export const AssetAllocationCard: React.FC<AssetAllocationCardProps> = ({
   percentDecimals = 1,
   style,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives } = theme;
 
-  // 1. Couleurs thématiques selon la catégorie d'actif
-  const getThemePalette = () => {
+  // Couleurs thématiques selon la catégorie d'actif
+  const palette = useMemo(() => {
     switch (variant) {
       case 'action':
         return {
-          primary: theme['colors_badge_primary-action-bg'],
-          secondary: theme['colors_badge_secondary-action-bg'],
+          primary: colors['colors_badge_primary-action-bg'],
+          secondary: colors['colors_badge_secondary-action-bg'],
         };
       case 'etf':
         return {
-          primary: theme['colors_badge_primary-etf-bg'],
-          secondary: theme['colors_badge_secondary-etf-bg'],
+          primary: colors['colors_badge_primary-etf-bg'],
+          secondary: colors['colors_badge_secondary-etf-bg'],
         };
       case 'crypto':
       default:
         return {
-          primary: theme['colors_badge_primary-crypto-bg'],
-          secondary: theme['colors_badge_secondary-crypto-bg'],
+          primary: colors['colors_badge_primary-crypto-bg'],
+          secondary: colors['colors_badge_secondary-crypto-bg'],
         };
     }
-  };
+  }, [variant, colors]);
 
-  const palette = getThemePalette();
+  const numericPercentage = useMemo(() => {
+    return typeof percentage === 'number'
+      ? percentage
+      : parseFloat(String(percentage).replace(',', '.'));
+  }, [percentage]);
 
-  // 2. Formatage des valeurs
-  const numericPercentage = typeof percentage === 'number' ? percentage : parseFloat(String(percentage).replace(',', '.'));
-  const clampedPercentage = Math.min(Math.max(isNaN(numericPercentage) ? 0 : numericPercentage, 0), 100);
+  const clampedPercentage = useMemo(() => {
+    return Math.min(Math.max(isNaN(numericPercentage) ? 0 : numericPercentage, 0), 100);
+  }, [numericPercentage]);
 
-  const formattedPercentage =
-    typeof percentage === 'number'
+  const formattedPercentage = useMemo(() => {
+    return typeof percentage === 'number'
       ? `${percentage.toLocaleString('fr-FR', {
           minimumFractionDigits: percentDecimals,
           maximumFractionDigits: percentDecimals,
         })}%`
       : percentage;
+  }, [percentage, percentDecimals]);
 
-  const formattedAmount =
-    typeof amount === 'number'
+  const formattedAmount = useMemo(() => {
+    return typeof amount === 'number'
       ? `${amount.toLocaleString('fr-FR', {
           minimumFractionDigits: amountDecimals,
           maximumFractionDigits: amountDecimals,
         })}${currency}`
       : amount;
+  }, [amount, amountDecimals, currency]);
 
   return (
     <View
       style={[
         styles.card,
         {
-          backgroundColor: theme['colors_bg_secondary'],
-          borderColor: theme['colors_button_outline-border'],
+          backgroundColor: colors['colors_bg_secondary'],
+          borderColor: colors['colors_button_outline-border'],
+          borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
+          borderWidth: primitives['border width_border-thin'] ?? 1,
+          padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+          gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
         },
         style,
       ]}
     >
       {/* Ligne 1 : Puce + Libellé à gauche, Pourcentage à droite */}
       <View style={styles.topRow}>
-        <View style={styles.categoryInfo}>
-          <View
-            style={[
-              styles.bulletDot,
-              { backgroundColor: palette.primary },
-            ]}
-          />
+        <View
+          style={[
+            styles.categoryInfo,
+            { gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8 },
+          ]}
+        >
+          <View style={[styles.bulletDot, { backgroundColor: palette.primary }]} />
           <Text
             style={[
               styles.labelText,
-              { color: theme['colors_text_primary'] },
+              {
+                color: colors['colors_text_primary'],
+                fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+                lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+              },
             ]}
             numberOfLines={1}
           >
@@ -137,7 +123,11 @@ export const AssetAllocationCard: React.FC<AssetAllocationCardProps> = ({
         <Text
           style={[
             styles.percentText,
-            { color: palette.primary },
+            {
+              color: palette.primary,
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
           ]}
           numberOfLines={1}
         >
@@ -149,7 +139,11 @@ export const AssetAllocationCard: React.FC<AssetAllocationCardProps> = ({
       <Text
         style={[
           styles.amountText,
-          { color: theme['colors_text_primary'] },
+          {
+            color: colors['colors_text_primary'],
+            fontSize: primitives['typography_font size_font-size-16'] ?? 16,
+            lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
+          },
         ]}
         numberOfLines={1}
       >
@@ -160,7 +154,10 @@ export const AssetAllocationCard: React.FC<AssetAllocationCardProps> = ({
       <View
         style={[
           styles.progressBarBackground,
-          { backgroundColor: palette.secondary },
+          {
+            backgroundColor: palette.secondary,
+            marginTop: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
+          },
         ]}
       >
         <View
@@ -180,10 +177,6 @@ export const AssetAllocationCard: React.FC<AssetAllocationCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    borderRadius: primitives['spacing & layout_border radius_radius-lg'] ?? 16,
-    borderWidth: primitives['border width_border-thin'] ?? 1,
-    padding: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
   },
   topRow: {
     flexDirection: 'row',
@@ -193,7 +186,6 @@ const styles = StyleSheet.create({
   categoryInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: primitives['spacing & layout_padding & margin_space-2'] ?? 8,
   },
   bulletDot: {
     width: 14,
@@ -201,30 +193,27 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   labelText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '600',
   },
   percentText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   amountText: {
-    fontSize: primitives['typography_font size_font-size-16'] ?? 16,
-    lineHeight: primitives['typography_line height_line-height-24'] ?? 24,
     fontWeight: '800',
     letterSpacing: -0.2,
+    fontVariant: ['tabular-nums'],
   },
   progressBarBackground: {
     width: '100%',
     height: 4,
-    borderRadius: primitives['spacing & layout_border radius_radius-full'] ?? 9999,
+    borderRadius: 9999,
     overflow: 'hidden',
-    marginTop: primitives['spacing & layout_padding & margin_space-1'] ?? 4,
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: primitives['spacing & layout_border radius_radius-full'] ?? 9999,
+    borderRadius: 9999,
   },
 });
+
+export default AssetAllocationCard;

@@ -1,12 +1,11 @@
-// components/table/MarketOverviewRow.tsx
-import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, useColorScheme } from 'react-native';
+'use client';
+
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { MarketTickerInfo } from '@/components/features/market/components/MarketTickerInfo';
 import { TradingChart } from '@/components/features/market/components/TradingChart';
 import { FinancialValue } from '@/components/ui/FinancialValue';
-import { darkColors } from '@/theme/generated/dark';
-import { lightColors } from '@/theme/generated/light';
-import { primitives } from '@/theme/generated/primitives';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 export interface MarketOverviewRowProps {
   countryOrCategory: string;
@@ -27,34 +26,47 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
   volume24h,
   style,
 }) => {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? darkColors : lightColors;
+  const { theme } = useAppTheme();
+  const { colors, primitives, isDark } = theme;
 
-  // 1. Calcul de la tendance (positif ou négatif)
-  const numericChange =
-    typeof changePercent === 'number'
+  // Calcul de la tendance (positif ou négatif)
+  const numericChange = useMemo(() => {
+    return typeof changePercent === 'number'
       ? changePercent
       : parseFloat(String(changePercent).replace(',', '.').replace('%', '').trim());
+  }, [changePercent]);
 
   const isPositive = !isNaN(numericChange) ? numericChange >= 0 : true;
 
-  // 2. Couleurs de la ligne et du dégradé
-  const lineColor = isPositive ? '#16A34A' : '#DC2626';
-  const topColor = isPositive ? 'rgba(22, 163, 74, 0.25)' : 'rgba(220, 38, 38, 0.25)';
-  const bottomColor = isPositive ? 'rgba(22, 163, 74, 0.0)' : 'rgba(220, 38, 38, 0.0)';
+  // Couleurs dérivées dynamiquement des tokens du thème
+  const lineColor = isPositive
+    ? colors['colors_button_buy']
+    : colors['colors_button_sell'];
 
-  const formattedPrice =
-    typeof price === 'number'
+  const topColor = isPositive
+    ? 'rgba(5, 150, 105, 0.25)'
+    : 'rgba(220, 38, 38, 0.25)';
+
+  const bottomColor = isPositive
+    ? 'rgba(5, 150, 105, 0.0)'
+    : 'rgba(220, 38, 38, 0.0)';
+
+  const formattedPrice = useMemo(() => {
+    return typeof price === 'number'
       ? `${price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
       : price;
+  }, [price]);
 
   return (
     <View
       style={[
         styles.row,
         {
-          backgroundColor: theme['colors_bg_secondary'] ?? '#FFFFFF',
-          borderBottomColor: theme['colors_divider_text'] ?? '#E5E7EB',
+          backgroundColor: colors['colors_bg_secondary'],
+          borderBottomColor: colors['colors_divider_text'],
+          paddingVertical: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
+          paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
+          borderBottomWidth: primitives['border width_border-thin'] ?? 1,
         },
         style,
       ]}
@@ -68,11 +80,11 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
         />
       </View>
 
-      {/* 2. Tendance 7j (Mini-Graphique épuré et coloré) */}
+      {/* 2. Tendance 7j (Mini-Graphique) */}
       <View style={styles.colTrendChart}>
         <TradingChart
           symbol={symbol ?? name}
-          themeMode={scheme === 'dark' ? 'dark' : 'light'}
+          themeMode={isDark ? 'dark' : 'light'}
           chartType="area"
           activeTool="crosshair"
           disableZoom
@@ -86,7 +98,16 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
 
       {/* 3. Prix */}
       <View style={styles.colPrice}>
-        <Text style={[styles.priceText, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.priceText,
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
+          ]}
+        >
           {formattedPrice}
         </Text>
       </View>
@@ -104,7 +125,16 @@ export const MarketOverviewRow: React.FC<MarketOverviewRowProps> = ({
 
       {/* 5. Volume 24h */}
       <View style={styles.colVolume}>
-        <Text style={[styles.volumeText, { color: theme['colors_text_primary'] ?? '#0B0F19' }]}>
+        <Text
+          style={[
+            styles.volumeText,
+            {
+              color: colors['colors_text_primary'],
+              fontSize: primitives['typography_font size_font-size-14'] ?? 14,
+              lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
+            },
+          ]}
+        >
           {volume24h}
         </Text>
       </View>
@@ -116,9 +146,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: primitives['spacing & layout_padding & margin_space-3'] ?? 12,
-    paddingHorizontal: primitives['spacing & layout_padding & margin_space-4'] ?? 16,
-    borderBottomWidth: primitives['border width_border-thin'] ?? 1,
     minHeight: 80,
   },
   colAsset: {
@@ -153,15 +180,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   priceText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '700',
     letterSpacing: -0.2,
+    fontVariant: ['tabular-nums'],
   },
   volumeText: {
-    fontSize: primitives['typography_font size_font-size-14'] ?? 14,
-    lineHeight: primitives['typography_line height_line-height-20'] ?? 20,
     fontWeight: '700',
     letterSpacing: -0.2,
+    fontVariant: ['tabular-nums'],
   },
 });
+
+export default MarketOverviewRow;

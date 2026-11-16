@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.newtrading.alerts.repository.AlertRepository;
 import com.newtrading.auth.repository.UserRepository;
 import com.newtrading.marketdata.dto.QuoteDto;
+import com.newtrading.marketdata.repository.MarketCandleRepository;
 import com.newtrading.marketdata.service.PriceBroadcasterService;
 import com.newtrading.portfolio.repository.SimulatedTransactionRepository;
 import com.newtrading.portfolio.repository.VirtualPortfolioRepository;
@@ -58,6 +59,9 @@ class WebSocketIntegrationTest {
     @MockBean
     private AlertRepository alertRepository;
 
+    @MockBean
+    private MarketCandleRepository marketCandleRepository;
+
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
@@ -68,7 +72,6 @@ class WebSocketIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Utilisation du client WebSocket standard natif (connecté à ws://.../ws)
         this.stompClient = new WebSocketStompClient(new StandardWebSocketClient());
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -121,7 +124,6 @@ class WebSocketIntegrationTest {
             }
         });
 
-        // Laisser 300ms au broker en mémoire pour finaliser l'enregistrement de l'abonnement
         Thread.sleep(300);
 
         QuoteDto quoteToSend = QuoteDto.builder()

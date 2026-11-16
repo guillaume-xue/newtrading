@@ -1,5 +1,7 @@
 package com.newtrading.shared.exception;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,6 +24,33 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
         problem.setTitle("Erreur Métier");
         problem.setType(URI.create("urn:problem-type:business-error"));
+        problem.setProperty("code", ex.getErrorCode());
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(RequestNotPermitted.class)
+    public ProblemDetail handleRateLimitException(RequestNotPermitted ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Le quota de requêtes vers le fournisseur de données de marché a été atteint. Veuillez patienter quelques instants."
+        );
+        problem.setTitle("Trop de Requêtes");
+        problem.setType(URI.create("urn:problem-type:rate-limit-exceeded"));
+        problem.setProperty("code", "RATE_LIMIT_EXCEEDED");
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(CallNotPermittedException.class)
+    public ProblemDetail handleCircuitBreakerException(CallNotPermittedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Le service tiers de cotation est temporairement suspendu suite à des erreurs répétées."
+        );
+        problem.setTitle("Service Indisponible");
+        problem.setType(URI.create("urn:problem-type:circuit-breaker-open"));
+        problem.setProperty("code", "CIRCUIT_BREAKER_OPEN");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
@@ -36,6 +65,7 @@ public class GlobalExceptionHandler {
         for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
             errors.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
+        problem.setProperty("code", "VALIDATION_FAILED");
         problem.setProperty("errors", errors);
         problem.setProperty("timestamp", Instant.now());
         return problem;
@@ -46,6 +76,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
         problem.setTitle("Erreur d'Authentification");
         problem.setType(URI.create("urn:problem-type:unauthorized"));
+        problem.setProperty("code", "UNAUTHORIZED");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
@@ -55,6 +86,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Accès interdit");
         problem.setTitle("Accès Interdit");
         problem.setType(URI.create("urn:problem-type:forbidden"));
+        problem.setProperty("code", "FORBIDDEN");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
@@ -64,6 +96,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Une erreur inattendue est survenue");
         problem.setTitle("Erreur Interne");
         problem.setType(URI.create("urn:problem-type:internal-server-error"));
+        problem.setProperty("code", "INTERNAL_SERVER_ERROR");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
